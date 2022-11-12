@@ -1,7 +1,7 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <mpi.h>
-#include <time.h>
+#include <stdio.h>=
+#include <stdlib.h>=
+#include <mpi.h>=
+#include <time.h>=
 //just the sends and recieves
 void Alltoall4x4(double* data, int size){
     int rank, num_procs;
@@ -41,7 +41,7 @@ void Alltoall4x4(double* data, int size){
             
     
     
-       printf("rank $d recieving from %d\n",rank, (local_rank - 1) > 0 ? local_rank -1: local_rank -1 + local_num_procs);
+       printf("rank $d recieving from %d\n",rank, (local_rank - 1) >= 0 ? local_rank -1: local_rank -1 + local_num_procs);
     }
     
     //second send.
@@ -50,7 +50,7 @@ void Alltoall4x4(double* data, int size){
         printf("rank %d sending to %d\n",rank, (2 + local_rank) % local_num_procs);
     
     
-        printf("rank $d recieving from %d\n",rank, (local_rank - 2) > 0 ? local_rank -2: local_rank -2 + local_num_procs);
+        printf("rank $d recieving from %d\n",rank, (local_rank - 2) >= 0 ? local_rank -2: local_rank -2 + local_num_procs);
         
     }
 
@@ -101,7 +101,7 @@ void Alltoall4x4(double* data, int size){
     //SEND GROUPS OF 1 ROW TO LEFT 1 PROC, LOCALLY (P3 TO P0)
     for(int i = 0; i < size;i++){
         if((i % 2) == 0) continue;
-        printf("rank %d sending to %d\n",rank,  (local_rank - 1) > 0 ? local_rank -1: local_rank -1 + local_num_procs);
+        printf("rank %d sending to %d\n",rank,  (local_rank - 1) >= 0 ? local_rank -1: local_rank -1 + local_num_procs);
     
     
        printf("rank $d recieving from %d\n",rank,(local_rank + 1 )% local_num_procs);
@@ -109,7 +109,7 @@ void Alltoall4x4(double* data, int size){
     //SEND GROUPS OF 2 ROWS TO LEFT 2 PROC, LOCALLY (P3 TO P1)
     for(int i = 0; i < size;i++){
         if((i % 2) == 0) continue;
-         printf("rank %d sending to %d\n",rank,  (local_rank - 2 )> 0 ? local_rank -2: local_rank -2+ local_num_procs);
+         printf("rank %d sending to %d\n",rank,  (local_rank - 2 )>= 0 ? local_rank -2: local_rank -2+ local_num_procs);
     
     
        printf("rank $d recieving from %d\n",rank,(local_rank + 2 )% local_num_procs);
@@ -125,12 +125,12 @@ int main(int argc, char* argv[]){
     MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
     double* data = new double[16];
     for(int i = 0; i < 16;i++){
-        data[i] = i*(rank+1); //giving all unique data.
+        data[i] = 16*(rank) + i; //giving all unique data.
     }
 
     Alltoall4x4(data,16);
     for(int i = 0; i < 16;i++){
-        printf("process %d, data[%d] == %e\n",rank,i,data[i]);
+        printf("process %d, data[%d] == %d\n",rank,i,int(data[i]));
     }
 
     MPI_Finalize();
