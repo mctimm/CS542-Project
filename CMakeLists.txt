@@ -10,4 +10,4 @@ find_package(MPI)
 set(CMAKE_CXX_COMPILER ${MPI_CXX_COMPILER})
 message("Using mpi compiler wrapper ${MPI_CXX_COMPILER}.")
 
-add_executable(localAlltoall Localalltoall.cpp)
+add_executable(localAlltoall LocalAlltoall.cpp)
