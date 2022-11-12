@@ -2,6 +2,22 @@
 #include <stdlib.h>
 #include <mpi.h>
 #include <time.h>
+#include <sys/time.h>
+#include <cassert>
+
+// initialize_data gives all unique data.
+void initialize_data(double *data, int rank) {
+    for(int i = 0; i < 16;i++){
+        data[i] = 16*(rank) + i;
+    }
+}
+
+// get_time gets the wall-clock time in seconds
+double get_time(void) {
+    struct timeval time;
+    gettimeofday(&time, NULL);
+    return time.tv_sec + time.tv_usec / 1000000.0;
+}
 
 void Alltoall4x4(double* data, int size){
     int rank, num_procs;
@@ -198,24 +214,78 @@ void Alltoall4x4(double* data, int size){
     }
     
     //That's all folks
-    free(recv_data);
+    delete[] recv_data;
 }   
+
 //main for testing and debugging
 int main(int argc, char* argv[]){
     MPI_Init(&argc,&argv);
     int rank, num_procs;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
+    static const int num_measurements = 1000;
+
+    // print csv header
+    if (rank == 0)
+        printf("algorithm,num_procs,num_doubles_per_proc,seconds\n");
+
     double* data = new double[16];
-    for(int i = 0; i < 16;i++){
-        data[i] = 16*(rank) + i; //giving all unique data.
-    }
+    double* check_data_send = new double[16];
+    double* check_data_recv = new double[16];
+    initialize_data(data, rank);
+    initialize_data(check_data_send, rank);
 
+    // correctness check
+    MPI_Alltoall(check_data_send, 16, MPI_DOUBLE, check_data_recv, 16, MPI_DOUBLE, MPI_COMM_WORLD);
     Alltoall4x4(data,16);
-    for(int i = 0; i < 16;i++){
-        printf("process %d, data[%d] == %x\n",rank,i,int(data[i]));
+    for (int i = 0; i < 16; ++i)
+        assert(data[i] == check_data_recv[i]);
+
+    // this barrier makes sure we are not timing process startup
+    // and data creation overhead
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    // start timer
+    double start = 0;
+    double end = 0;
+    if (rank == 0)
+        start = get_time();
+
+    // alltoall many times
+    for (int i = 0; i < num_measurements; ++i) {
+        Alltoall4x4(data,16);
+        for(int i = 0; i < 16;i++){
+            printf("process %d, data[%d] == %x\n",rank,i,int(data[i]));
+        }
     }
 
+    // stop timer and print result
+    if (rank == 0) {
+        end = get_time();
+        printf("%s,%d,%d,%g\n", "Alltoall4x4", 16, 16, (end - start) / num_measurements); // csv row
+    }
+
+    // barrier before timing library version
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    // start timer
+    if (rank == 0)
+        start = get_time();
+
+    // alltoall many times
+    for (int i = 0; i < num_measurements; ++i) {
+        MPI_Alltoall(check_data_send, 16, MPI_DOUBLE, check_data_recv, 16, MPI_DOUBLE, MPI_COMM_WORLD);
+    }
+
+    // stop timer and print result
+    if (rank == 0) {
+        end = get_time();
+        printf("%s,%d,%d,%g\n", "MPI_Alltoall", 16, 16, (end - start) / num_measurements); // csv row
+    }
+
+    delete[] data;
+    delete[] check_data_send;
+    delete[] check_data_recv;
     MPI_Finalize();
     return 0;
 }
