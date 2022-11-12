@@ -12,7 +12,7 @@ void Alltoall4x4(double* data, int size){
 
     //split by node
     
-    int rank % 4;
+    int local_rank = rank % 4;
     int local_num_procs = 4;
     int node = rank/4; //bit of integer division for the nodes, assuming alignment
 
