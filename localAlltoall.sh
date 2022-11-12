@@ -9,6 +9,7 @@
 #SBATCH --mail-user mtimm1984@unm.edu
 #SBATCH --mail-type ALL
 #SBATCH --ntasks-per-node 4
-module load openmpi
 
-srun --mpi=pmi2 Alltoall
+. env.sh
+srun --mpi=pmi2 hostname
+srun --mpi=pmi2 ./build/Alltoall > results_4x4.csv

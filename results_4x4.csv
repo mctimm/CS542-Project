@@ -1,0 +1,3 @@
+algorithm,num_procs,num_doubles_per_proc,seconds
+Alltoall4x4,16,16,0.000108351
+MPI_Alltoall,16,16,1.4143e-05
