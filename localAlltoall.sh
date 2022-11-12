@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH --partition normal
+#SBATCH --partition debug
 #SBATCH --nodes 4
 #SBATCH --ntasks 16
 #SBATCH --mem 2900M
