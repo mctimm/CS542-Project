@@ -24,7 +24,7 @@ void Alltoall4x4(double* data, int size){
     int node = num_procs/rank; //bit of integer division for the nodes, assuming alignment
 
 
-    printf("%d proc, %d local\n", rank,local_rank)
+    printf("%d proc, %d local\n", rank,local_rank);
     return;
     //initial shift
     for(int i = 0; i < local_rank*local_num_procs;i++){
