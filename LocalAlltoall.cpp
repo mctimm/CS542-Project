@@ -136,7 +136,7 @@ void Alltoall4x4(double* data, int size){
         data[i] = recv_data[i];
     }
     //SEND GROUPS OF 2 ROWS TO LEFT 2 PROC, LOCALLY (P3 TO P1)
-    for(int i = 0; i < size;i++){
+    for(int i = 0; i < size/2;i++){
         if((i % 2) == 0) continue;
         MPI_Isend(&(data[i*2]), 2, MPI_DOUBLE,  (local_rank - 2 )>= 0 ? local_rank -2: local_rank -2+ local_num_procs, 1234, 
             MPI_COMM_LOCAL,&send_request);
