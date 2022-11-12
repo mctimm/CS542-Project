@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.15)
-project(localAlltoall
+project(Alltoall
   LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 11)
@@ -10,4 +10,4 @@ find_package(MPI)
 set(CMAKE_CXX_COMPILER ${MPI_CXX_COMPILER})
 message("Using mpi compiler wrapper ${MPI_CXX_COMPILER}.")
 
-add_executable(localAlltoall LocalAlltoall.cpp)
+add_executable(Alltoall LocalAlltoall.cpp)

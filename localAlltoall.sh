@@ -11,4 +11,4 @@
 #SBATCH --ntasks-per-node 4
 
 . env.sh
-srun --mpi=pmi2 Alltoall
+srun --mpi=pmi2 ./build/Alltoall > results_4x4.csv
