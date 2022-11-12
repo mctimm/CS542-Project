@@ -166,4 +166,30 @@ void Alltoall4x4(double* data, int size){
         }   
     }
     //TRANSPOSE (ARRAY[I*PPN+J] = ARRAY[J*PPN+1])
+    for(int i = 0; i < local_num_procs;i++){
+        for(int j = 0; j < local_num_procs;j++){
+            data[i*local_num_procs+j] = data[j*local_num_procs+i]
+        }
+    }
+    //That's all folks
+    free(recv_data);
+}   
+//main for testing and debugging
+int main(int argc, char* argv[]){
+    MPI_Init(&argc,&argv);
+    int rank, num_procs;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
+    double data = new double[16];
+    for(int i = 0; i < 16;i++){
+        data[i] = i*(rank+1); //giving all unique data.
+    }
+
+    localAlltoall4x4(data,16);
+    for(int i = 0; i < 16;i++){
+        printf("process %d, data[%d] == %e\n",rank,i,data[i]);
+    }
+
+    MPI_Finalize();
+    return 0;
 }
