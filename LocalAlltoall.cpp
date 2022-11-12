@@ -49,7 +49,7 @@ void Alltoall4x4(double* data, int size){
     
     
         MPI_Irecv(&(recv_data[i*local_num_procs]), local_num_procs, MPI_DOUBLE, 
-            (local_rank - 1) > 0 ? local_rank -1: local_rank -1 + local_num_procs, 1234, MPI_COMM_LOCAL, &recv_request);
+            (local_rank - 1) >= 0 ? local_rank -1: local_rank -1 + local_num_procs, 1234, MPI_COMM_LOCAL, &recv_request);
         MPI_Wait(&send_request,&status);
         MPI_Wait(&recv_request,&status);
         for(int j =0; j < local_num_procs;j++){
@@ -65,7 +65,7 @@ void Alltoall4x4(double* data, int size){
     
     
         MPI_Irecv(&(recv_data[i*local_num_procs*2]), local_num_procs*2, MPI_DOUBLE, 
-            (local_rank - 2) > 0 ? local_rank -2: local_rank -2 + local_num_procs, 1234, MPI_COMM_LOCAL, &recv_request);
+            (local_rank - 2) >= 0 ? local_rank -2: local_rank -2 + local_num_procs, 1234, MPI_COMM_LOCAL, &recv_request);
         MPI_Wait(&send_request,&status);
         MPI_Wait(&recv_request,&status);
         for(int j =0; j < local_num_procs*2;j++){
@@ -125,7 +125,7 @@ void Alltoall4x4(double* data, int size){
     //SEND GROUPS OF 1 ROW TO LEFT 1 PROC, LOCALLY (P3 TO P0)
     for(int i = 0; i < size;i++){
         if((i % 2) == 0) continue;
-        MPI_Isend(&(data[i]), 1, MPI_DOUBLE,  (local_rank - 1) > 0 ? local_rank -1: local_rank -1 + local_num_procs, 1234, 
+        MPI_Isend(&(data[i]), 1, MPI_DOUBLE,  (local_rank - 1) >= 0 ? local_rank -1: local_rank -1 + local_num_procs, 1234, 
             MPI_COMM_LOCAL,&send_request);
     
     
@@ -138,7 +138,7 @@ void Alltoall4x4(double* data, int size){
     //SEND GROUPS OF 2 ROWS TO LEFT 2 PROC, LOCALLY (P3 TO P1)
     for(int i = 0; i < size;i++){
         if((i % 2) == 0) continue;
-        MPI_Isend(&(data[i*2]), 2, MPI_DOUBLE,  (local_rank - 2 )> 0 ? local_rank -2: local_rank -2+ local_num_procs, 1234, 
+        MPI_Isend(&(data[i*2]), 2, MPI_DOUBLE,  (local_rank - 2 )>= 0 ? local_rank -2: local_rank -2+ local_num_procs, 1234, 
             MPI_COMM_LOCAL,&send_request);
     
     
