@@ -21,7 +21,7 @@ void Alltoall4x4(double* data, int size){
     int local_rank, local_num_procs;
     MPI_Comm_rank(MPI_COMM_LOCAL, &local_rank);
     MPI_Comm_size(MPI_COMM_LOCAL, &local_num_procs);
-    int node = rank/4; //bit of integer division for the nodes, assuming alignment
+    //int node = rank/4; //bit of integer division for the nodes, assuming alignment
     int node = rank/4; //bit of integer division for the nodes, assuming alignment
 
 
