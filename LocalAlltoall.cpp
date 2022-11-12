@@ -39,7 +39,7 @@ void Alltoall4x4(double* data, int size){
     double* recv_data = new double[size];
     for(int i = 0; i< local_num_procs;i++){
         if((i % 2) == 0) continue;
-        MPI_Isend(&(data[i*local_num_procs]), local_num_procs, MPI_DOUBLE, 1+ local_rank % num_procs, 1234, 
+        MPI_Isend(&(data[i*local_num_procs]), local_num_procs, MPI_DOUBLE, 1+ local_rank % local_num_procs, 1234, 
             MPI_COMM_LOCAL,&send_request);
     
     
@@ -55,7 +55,7 @@ void Alltoall4x4(double* data, int size){
     //second send.
     for(int i = 0; i< local_num_procs/2;i++){
         if((i % 2) == 0) continue;
-        MPI_Isend(&(data[i*local_num_procs*2]), local_num_procs*2, MPI_DOUBLE, 2 + Local_rank % num_procs, 1234, 
+        MPI_Isend(&(data[i*local_num_procs*2]), local_num_procs*2, MPI_DOUBLE, 2 + Local_rank % local_num_procs, 1234, 
             MPI_COMM_LOCAL,&send_request);
     
     
