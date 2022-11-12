@@ -254,9 +254,6 @@ int main(int argc, char* argv[]){
     // alltoall many times
     for (int i = 0; i < num_measurements; ++i) {
         Alltoall4x4(data,16);
-        for(int i = 0; i < 16;i++){
-            printf("process %d, data[%d] == %x\n",rank,i,int(data[i]));
-        }
     }
 
     // stop timer and print result
