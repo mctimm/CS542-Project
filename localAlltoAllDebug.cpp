@@ -256,7 +256,7 @@ void Alltoall4x4(double* data, int size){
 }   
 
 //works for square powers of 2.
-void LocalAlltoallsquare(double * data, int size, int partition){
+void Alltoallsquare(double * data, int size, int partition){
         int rank, num_procs;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
@@ -295,7 +295,7 @@ void LocalAlltoallsquare(double * data, int size, int partition){
     }
     if(rank == 3){
     	for(int i = 0; i < size;i++){
-        printf("process %d, data[%d] == %e\n",rank,i,data[i]);
+        printf("process %d, data[%d] == %x\n",rank,i,int(data[i]));
     }
 
     
@@ -304,27 +304,27 @@ void LocalAlltoallsquare(double * data, int size, int partition){
 
     MPI_Request send_request, recv_request;
     double* recv_data = new double[size];
-    for(int k = 1; k <= localsends; k*=2){
-        
+    for(int k = 1; k <= localsends; k*=2){ 
+	printf("k = %d\n",k);
         for(int i = 0; i< local_num_procs/k;i++){
             if((i % 2) == 0) continue;
             MPI_Isend(&(data[i*local_num_procs*k]), local_num_procs*k, MPI_DOUBLE, (k+ local_rank) % local_num_procs, 1234, 
                 MPI_COMM_LOCAL,&send_request);
     
     
-            MPI_Irecv(&(recv_data[i*local_num_procs]), local_num_procs, MPI_DOUBLE, 
+            MPI_Irecv(&(recv_data[i*local_num_procs*k]), local_num_procs*k, MPI_DOUBLE, 
                 (local_rank - k) >= 0 ? local_rank -k: local_rank -k + local_num_procs, 1234, MPI_COMM_LOCAL, &recv_request);
             MPI_Wait(&send_request,&status);
             MPI_Wait(&recv_request,&status);
-            for(int j =0; j < local_num_procs;j++){
-                data[i*local_num_procs + j] = (recv_data[i*local_num_procs + j]);
+            for(int j =0; j < local_num_procs*k;j++){
+                data[i*local_num_procs*k + j] = (recv_data[i*local_num_procs*k + j]);
             }
         }
     }
     
     if(rank == 0){
         for(int i = 0; i < size;i++){
-            printf("process %d, data[%d] == %e\n",rank,i,data[i]);
+            printf("process %d, data[%d] = %x, localsends = %d\n",rank,i,int(data[i]),localsends);
         }
     }
 
@@ -344,7 +344,7 @@ void LocalAlltoallsquare(double * data, int size, int partition){
     }
     if(rank == 0){
         for(int i = 0; i < size;i++){
-        printf("process %d, data[%d] == %e\n",rank,i,data[i]);
+        printf("process %d, data[%d] == %x\n",rank,i,int(data[i]));
     }
 
 
@@ -481,13 +481,13 @@ int main(int argc, char* argv[]){
     int rank, num_procs;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
-    double* data = new double[16];
-    for(int i = 0; i < 16;i++){
-        data[i] = 16*(rank) + i; //giving all unique data.
+    double* data = new double[64];
+    for(int i = 0; i < 64;i++){
+        data[i] = 64*(rank) + i; //giving all unique data.
     }
 
-    Alltoallsquare(data,16,4);
-    for(int i = 0; i < 16;i++){
+    Alltoallsquare(data,64,8);
+    for(int i = 0; i < 64;i++){
         printf("process %d, data[%d] == %x\n",rank,i,int(data[i]));
     }
 
