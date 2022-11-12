@@ -101,7 +101,7 @@ void Alltoall4x4(double* data, int size){
     //SEND GROUPS OF 1 ROW TO LEFT 1 PROC, LOCALLY (P3 TO P0)
     for(int i = 0; i < size;i++){
         if((i % 2) == 0) continue;
-        printf("rank %d sending to %d\n",rank;  (local_rank - 1) > 0 ? local_rank -1: local_rank -1 + local_num_procs);
+        printf("rank %d sending to %d\n",rank,  (local_rank - 1) > 0 ? local_rank -1: local_rank -1 + local_num_procs);
     
     
        printf("rank $d recieving from %d\n",rank,(local_rank + 1 )% local_num_procs);
@@ -109,8 +109,7 @@ void Alltoall4x4(double* data, int size){
     //SEND GROUPS OF 2 ROWS TO LEFT 2 PROC, LOCALLY (P3 TO P1)
     for(int i = 0; i < size;i++){
         if((i % 2) == 0) continue;
-        MPI_Isend(&(data[i*2]), 2, MPI_DOUBLE,  (local_rank - 2 )> 0 ? local_rank -2: local_rank -2+ local_num_procs, 1234, 
-            MPI_COMM_LOCAL,&send_request);
+         printf("rank %d sending to %d\n",rank,  (local_rank - 2 )> 0 ? local_rank -2: local_rank -2+ local_num_procs);
     
     
        printf("rank $d recieving from %d\n",rank,(local_rank + 2 )% local_num_procs);
