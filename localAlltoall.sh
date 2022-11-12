@@ -9,6 +9,6 @@
 #SBATCH --mail-user mtimm1984@unm.edu
 #SBATCH --mail-type ALL
 #SBATCH --ntasks-per-node 4
-module load openmpi
 
+. env.sh
 srun --mpi=pmi2 Alltoall
