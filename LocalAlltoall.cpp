@@ -22,6 +22,10 @@ void Alltoall4x4(double* data, int size){
     MPI_Comm_rank(MPI_COMM_LOCAL, &local_rank);
     MPI_Comm_size(MPI_COMM_LOCAL, &local_num_procs);
     int node = num_procs/rank; //bit of integer division for the nodes, assuming alignment
+
+
+    printf("%d proc, %d local\n", rank,local_rank)
+    return;
     //initial shift
     for(int i = 0; i < local_rank*local_num_procs;i++){
         double tmp = data[0];
@@ -55,7 +59,7 @@ void Alltoall4x4(double* data, int size){
     //second send.
     for(int i = 0; i< local_num_procs/2;i++){
         if((i % 2) == 0) continue;
-        MPI_Isend(&(data[i*local_num_procs*2]), local_num_procs*2, MPI_DOUBLE, 2 + Local_rank % local_num_procs, 1234, 
+        MPI_Isend(&(data[i*local_num_procs*2]), local_num_procs*2, MPI_DOUBLE, 2 + local_rank % local_num_procs, 1234, 
             MPI_COMM_LOCAL,&send_request);
     
     
