@@ -1,0 +1,35 @@
+You have not been allocated GPUs. To request GPUs, use the -G option in your submission script.
+[wheeler303:17257] *** An error occurred in MPI_Irecv
+[wheeler303:17257] *** reported by process [855900160,9]
+[wheeler303:17257] *** on communicator MPI COMMUNICATOR 3 SPLIT_TYPE FROM 0
+[wheeler303:17257] *** MPI_ERR_RANK: invalid rank
+[wheeler303:17257] *** MPI_ERRORS_ARE_FATAL (processes in this communicator will now abort,
+[wheeler303:17257] ***    and potentially your MPI job)
+[wheeler302:22951] *** An error occurred in MPI_Irecv
+[wheeler302:22951] *** reported by process [855900160,5]
+[wheeler302:22951] *** on communicator MPI COMMUNICATOR 3 SPLIT_TYPE FROM 0
+[wheeler302:22951] *** MPI_ERR_RANK: invalid rank
+[wheeler302:22951] *** MPI_ERRORS_ARE_FATAL (processes in this communicator will now abort,
+[wheeler302:22951] ***    and potentially your MPI job)
+[wheeler301:04859] *** An error occurred in MPI_Irecv
+[wheeler301:04859] *** reported by process [855900160,1]
+[wheeler301:04859] *** on communicator MPI COMMUNICATOR 3 SPLIT_TYPE FROM 0
+[wheeler301:04859] *** MPI_ERR_RANK: invalid rank
+[wheeler301:04859] *** MPI_ERRORS_ARE_FATAL (processes in this communicator will now abort,
+[wheeler301:04859] ***    and potentially your MPI job)
+[wheeler304:06867] *** An error occurred in MPI_Irecv
+[wheeler304:06867] *** reported by process [855900160,13]
+[wheeler304:06867] *** on communicator MPI COMMUNICATOR 3 SPLIT_TYPE FROM 0
+[wheeler304:06867] *** MPI_ERR_RANK: invalid rank
+[wheeler304:06867] *** MPI_ERRORS_ARE_FATAL (processes in this communicator will now abort,
+[wheeler304:06867] ***    and potentially your MPI job)
+slurmstepd: error: *** STEP 340740.0 ON wheeler301 CANCELLED AT 2022-11-11T20:33:54 ***
+srun: Job step aborted: Waiting up to 32 seconds for job step to finish.
+srun: error: wheeler303: tasks 8,10-11: Killed
+srun: error: wheeler303: task 9: Exited with exit code 6
+srun: error: wheeler302: tasks 4,6-7: Killed
+srun: error: wheeler304: tasks 12,14-15: Killed
+srun: error: wheeler301: tasks 0,2-3: Killed
+srun: error: wheeler302: task 5: Exited with exit code 6
+srun: error: wheeler304: task 13: Exited with exit code 6
+srun: error: wheeler301: task 1: Exited with exit code 6

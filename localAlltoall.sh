@@ -8,7 +8,7 @@
 #SBATCH --job-name localAlltoall4x4
 #SBATCH --mail-user mtimm1984@unm.edu
 #SBATCH --mail-type ALL
-
+#SBATCH --ntasks-per-node 4
 module load openmpi
 
-srun --mpi=pmi2 calc_pi 1048576
+srun --mpi=pmi2 Alltoall
