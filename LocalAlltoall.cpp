@@ -236,7 +236,7 @@ int main(int argc, char* argv[]){
     initialize_data(check_data_send, rank);
 
     // correctness check
-    MPI_Alltoall(check_data_send, 16, MPI_DOUBLE, check_data_recv, 16, MPI_DOUBLE, MPI_COMM_WORLD);
+    MPI_Alltoall(check_data_send, 16, MPI_DOUBLE, check_data_recv, 1, MPI_DOUBLE, MPI_COMM_WORLD);
     Alltoall4x4(data,16);
     for (int i = 0; i < 16; ++i)
         assert(data[i] == check_data_recv[i]);
