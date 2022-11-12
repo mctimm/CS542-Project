@@ -241,8 +241,8 @@ int main(int argc, char* argv[]){
     for (int i = 0; i < 16; ++i)
         assert(data[i] == check_data_recv[i]);
 
-    // this barrier makes sure we are not timing process startup
-    // and data creation overhead
+    // warmup and barrier before timing local version
+    Alltoall4x4(data,16);
     MPI_Barrier(MPI_COMM_WORLD);
 
     // start timer
@@ -262,7 +262,8 @@ int main(int argc, char* argv[]){
         printf("%s,%d,%d,%g\n", "Alltoall4x4", 16, 16, (end - start) / num_measurements); // csv row
     }
 
-    // barrier before timing library version
+    // warmup and barrier before timing library version
+    MPI_Alltoall(check_data_send, 1, MPI_DOUBLE, check_data_recv, 1, MPI_DOUBLE, MPI_COMM_WORLD);
     MPI_Barrier(MPI_COMM_WORLD);
 
     // start timer
