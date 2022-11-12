@@ -71,10 +71,10 @@ void Alltoall4x4(double* data, int size){
     //global send.
     int nextsend = local_num_procs * local_rank + node; //calculate who to send to.
     MPI_Isend(data, size, MPI_DOUBLE, nextsend, 1234, 
-            MPI_COMM_LOCAL,&send_request);
+            MPI_COMM_WORLD,&send_request);
     
     
-    MPI_Irecv(recv_data, nextsend, MPI_DOUBLE, next, 1234, MPI_COMM_LOCAL, &recv_request);
+    MPI_Irecv(recv_data, nextsend, MPI_DOUBLE, next, 1234, MPI_COMM_WORLD, &recv_request);
     MPI_Wait(&send_request,status);
     MPI_Wait(&recv_request,status);
     for(int j =0; j < size;j++){
@@ -118,5 +118,52 @@ void Alltoall4x4(double* data, int size){
         data[0] = tmp;
     }
     //SEND GROUPS OF 1 ROW TO LEFT 1 PROC, LOCALLY (P3 TO P0)
+    for(int i = 0; i < size;i++){
+        if((i % 2) == 0) continue;
+        MPI_Isend(&(data[i]), 1, MPI_DOUBLE, 1+ rank % num_procs, 1234, 
+            MPI_COMM_LOCAL,&send_request);
     
+    
+        MPI_Irecv(&(recv_data[i]), 1, MPI_DOUBLE, 
+            rank - i > 0 ? rank -1: rank -1 + local_num_procs, 1234, MPI_COMM_LOCAL, &recv_request);
+        MPI_Wait(&send_request,status);
+        MPI_Wait(&recv_request,status);
+        data[i] = recv_data[i];
+    }
+    //SEND GROUPS OF 2 ROWS TO LEFT 2 PROC, LOCALLY (P3 TO P1)
+    for(int i = 0; i < size;i++){
+        if((i % 2) == 0) continue;
+        MPI_Isend(&(data[i*2]), 2, MPI_DOUBLE, 1+ rank % num_procs, 1234, 
+            MPI_COMM_LOCAL,&send_request);
+    
+    
+        MPI_Irecv(&(recv_data[i*2]), 2, MPI_DOUBLE, 
+            rank - i > 0 ? rank -1: rank -1 + local_num_procs, 1234, MPI_COMM_LOCAL, &recv_request);
+        MPI_Wait(&send_request,status);
+        MPI_Wait(&recv_request,status);
+        
+        data[i*2] = recv_data[i*2];
+        data[i*2 + 1] = recv_data[i*2+1];
+    }
+    //ROTATE UP BY LOCAL RANK
+    for(int i = 0; i< local_rank;i++){
+        double tmp = data[0]
+        double tmp2;
+        for(int j = 1; j < size;j++){
+            tmp2 = data[j]
+            data[j] = tmp;
+            tmp = tmp2;
+        }
+        data[0] = tmp;
+    }
+    //REVERSE AMONG GROUPS (NOT WITHIN)
+
+    for(int i = 0; i < local_num_procs/2;i++){
+        for(int j = 0; j < local_num_procs;j++){
+            double tmp = data[i*local_num_procs+j];
+            data[i*local_num_procs + j] = data[(local_num_procs-1 +i)*local_num_procs + j];
+            data[(local_num_procs-1 +i)*local_num_procs + j] = tmp;
+        }   
+    }
+    //TRANSPOSE (ARRAY[I*PPN+J] = ARRAY[J*PPN+1])
 }
