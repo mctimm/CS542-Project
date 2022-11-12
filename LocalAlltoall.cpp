@@ -8,7 +8,6 @@ void Alltoall4x4(double* data, int size){
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
     MPI_Status status;
-    int next_gap;
 
     //split by node
     MPI_Comm MPI_COMM_LOCAL;
