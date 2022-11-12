@@ -5,7 +5,7 @@
 ```
 . env.sh
 ./compile.sh
-``
+```
 
 ## Run on wheeler
 
