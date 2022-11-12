@@ -19,7 +19,7 @@ double get_time(void) {
     return time.tv_sec + time.tv_usec / 1000000.0;
 }
 
-void Alltoall4x4(double* data, int size){
+void Alltoall4x4(double* data, double* recv_data, int size){
     int rank, num_procs;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
@@ -60,7 +60,6 @@ void Alltoall4x4(double* data, int size){
     //first send
     MPI_Request send_request, recv_request;
 
-    double* recv_data = new double[size];
     for(int i = 0; i< local_num_procs;i++){
         if((i % 2) == 0) continue;
         MPI_Isend(&(data[i*local_num_procs]), local_num_procs, MPI_DOUBLE, (1+ local_rank) % local_num_procs, 1234, 
@@ -212,9 +211,6 @@ void Alltoall4x4(double* data, int size){
 	    data[j*local_num_procs+i] = tmp;
         }
     }
-    
-    //That's all folks
-    delete[] recv_data;
 }   
 
 //main for testing and debugging
@@ -229,20 +225,21 @@ int main(int argc, char* argv[]){
     if (rank == 0)
         printf("algorithm,num_procs,num_doubles_per_proc,seconds\n");
 
-    double* data = new double[16];
+    double* data_send = new double[16];
+    double* data_recv = new double[16];
     double* check_data_send = new double[16];
     double* check_data_recv = new double[16];
-    initialize_data(data, rank);
+    initialize_data(data_send, rank);
     initialize_data(check_data_send, rank);
 
     // correctness check
     MPI_Alltoall(check_data_send, 1, MPI_DOUBLE, check_data_recv, 1, MPI_DOUBLE, MPI_COMM_WORLD);
-    Alltoall4x4(data,16);
+    Alltoall4x4(data_send, data_recv, 16);
     for (int i = 0; i < 16; ++i)
-        assert(data[i] == check_data_recv[i]);
+        assert(data_recv[i] == check_data_recv[i]);
 
     // warmup and barrier before timing local version
-    Alltoall4x4(data,16);
+    Alltoall4x4(data_send, data_recv, 16);
     MPI_Barrier(MPI_COMM_WORLD);
 
     // start timer
@@ -253,7 +250,7 @@ int main(int argc, char* argv[]){
 
     // alltoall many times
     for (int i = 0; i < num_measurements; ++i) {
-        Alltoall4x4(data,16);
+        Alltoall4x4(data_send, data_recv, 16);
     }
 
     // stop timer and print result
@@ -281,7 +278,9 @@ int main(int argc, char* argv[]){
         printf("%s,%d,%d,%g\n", "MPI_Alltoall", 16, 16, (end - start) / num_measurements); // csv row
     }
 
-    delete[] data;
+    // That's all folks!
+    delete[] data_send;
+    delete[] data_recv;
     delete[] check_data_send;
     delete[] check_data_recv;
     MPI_Finalize();
