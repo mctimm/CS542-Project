@@ -383,7 +383,7 @@ int main(int argc, char* argv[]){
     int rank, num_procs;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
-    static const int num_measurements = 1;
+    static const int num_measurements = 1000;
     int num_doubles = num_procs;
 
     // print csv header
