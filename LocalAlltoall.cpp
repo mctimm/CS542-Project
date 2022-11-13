@@ -253,7 +253,7 @@ void Alltoallsquare(double *data, double *data_temp, int size){
 
     MPI_Request send_request, recv_request;
     for(int k = 1; k <= localsends; k*=2){ 
-	printf("k = %d\n",k);
+	// printf("k = %d\n",k);
         for(int i = 0; i< local_num_procs/k;i++){
             if((i % 2) == 0) continue;
             MPI_Isend(&(data[i*local_num_procs*k]), local_num_procs*k, MPI_DOUBLE, (k+ local_rank) % local_num_procs, 1234, 
