@@ -4,6 +4,7 @@
 #include <time.h>
 #include <sys/time.h>
 #include <cassert>
+#include <cmath>
 
 // initialize_data gives all unique data.
 void initialize_data(double *data, int rank) {
@@ -382,27 +383,28 @@ int main(int argc, char* argv[]){
     int rank, num_procs;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
-    static const int num_measurements = 1000;
+    static const int num_measurements = 1;
+    int num_doubles = num_procs;
 
     // print csv header
     if (rank == 0)
         printf("algorithm,num_procs,num_doubles_per_proc,seconds\n");
 
-    double* data = new double[16];
-    double* data_temp = new double[16];
-    double* check_data_send = new double[16];
-    double* check_data_recv = new double[16];
+    double* data = new double[num_doubles];
+    double* data_temp = new double[num_doubles];
+    double* check_data_send = new double[num_doubles];
+    double* check_data_recv = new double[num_doubles];
     initialize_data(data, rank);
     initialize_data(check_data_send, rank);
 
     // correctness check
     MPI_Alltoall(check_data_send, 1, MPI_DOUBLE, check_data_recv, 1, MPI_DOUBLE, MPI_COMM_WORLD);
-    Alltoallsquare(data, data_temp, 16);
-    for (int i = 0; i < 16; ++i)
-        assert(data[i] == check_data_recv[i]);
+    Alltoallsquare(data, data_temp, num_doubles);
+    for (int i = 0; i < num_doubles; ++i)
+        assert(abs(data[i] - check_data_recv[i]) <= 1e-5);
 
     // warmup and barrier before timing local version
-    Alltoallsquare(data, data_temp, 16);
+    Alltoallsquare(data, data_temp, num_doubles);
     MPI_Barrier(MPI_COMM_WORLD);
 
     // start timer
@@ -413,13 +415,13 @@ int main(int argc, char* argv[]){
 
     // alltoall many times
     for (int i = 0; i < num_measurements; ++i) {
-        Alltoallsquare(data, data_temp, 16);
+        Alltoallsquare(data, data_temp, num_doubles);
     }
 
     // stop timer and print result
     if (rank == 0) {
         end = get_time();
-        printf("%s,%d,%d,%g\n", "Alltoallsquare", 16, 16, (end - start) / num_measurements); // csv row
+        printf("%s,%d,%d,%g\n", "Alltoallsquare", num_procs, num_doubles, (end - start) / num_measurements); // csv row
     }
 
     // warmup and barrier before timing library version
@@ -438,7 +440,7 @@ int main(int argc, char* argv[]){
     // stop timer and print result
     if (rank == 0) {
         end = get_time();
-        printf("%s,%d,%d,%g\n", "MPI_Alltoall", 16, 16, (end - start) / num_measurements); // csv row
+        printf("%s,%d,%d,%g\n", "MPI_Alltoall", num_procs, num_doubles, (end - start) / num_measurements); // csv row
     }
 
     // That's all folks!

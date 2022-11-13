@@ -1,5 +1,3 @@
 algorithm,num_procs,num_doubles_per_proc,seconds
-Alltoall4x4,16,16,0.000108351
-Alltoall4x4_mem_mod,16,16,0.000103928
-Alltoallsquare,16,16,0.000113799
-MPI_Alltoall,16,16,1.4143e-05
+Alltoallsquare,16,16,0.000128984
+MPI_Alltoall,16,16,7.70092e-05
