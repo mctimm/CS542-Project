@@ -213,12 +213,11 @@ void Alltoall4x4(double* data, double* data_temp, int size){
     }
 }   
 
-void Alltoallsquare(double * data, int size){
-        int rank, num_procs;
+void Alltoallsquare(double *data, double *data_temp, int size){
+    int rank, num_procs;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
     MPI_Status status;
-    int next_gap;
 
     //split by node
     MPI_Comm MPI_COMM_LOCAL;
@@ -253,7 +252,6 @@ void Alltoallsquare(double * data, int size){
     //local sends
 
     MPI_Request send_request, recv_request;
-    double* recv_data = new double[size];
     for(int k = 1; k <= localsends; k*=2){ 
 	printf("k = %d\n",k);
         for(int i = 0; i< local_num_procs/k;i++){
@@ -262,12 +260,12 @@ void Alltoallsquare(double * data, int size){
                 MPI_COMM_LOCAL,&send_request);
     
     
-            MPI_Irecv(&(recv_data[i*local_num_procs*k]), local_num_procs*k, MPI_DOUBLE, 
+            MPI_Irecv(&(data_temp[i*local_num_procs*k]), local_num_procs*k, MPI_DOUBLE, 
                 (local_rank - k) >= 0 ? local_rank -k: local_rank -k + local_num_procs, 1234, MPI_COMM_LOCAL, &recv_request);
             MPI_Wait(&send_request,&status);
             MPI_Wait(&recv_request,&status);
             for(int j =0; j < local_num_procs*k;j++){
-                data[i*local_num_procs*k + j] = (recv_data[i*local_num_procs*k + j]);
+                data[i*local_num_procs*k + j] = (data_temp[i*local_num_procs*k + j]);
             }
         }
     }
@@ -277,11 +275,11 @@ void Alltoallsquare(double * data, int size){
             MPI_COMM_WORLD,&send_request);
     
     
-    MPI_Irecv(recv_data, size, MPI_DOUBLE, nextsend, 1234, MPI_COMM_WORLD, &recv_request);
+    MPI_Irecv(data_temp, size, MPI_DOUBLE, nextsend, 1234, MPI_COMM_WORLD, &recv_request);
     MPI_Wait(&send_request,&status);
     MPI_Wait(&recv_request,&status);
     for(int j =0; j < size;j++){
-        data[j] = (recv_data[j]);
+        data[j] = (data_temp[j]);
     }
 
 
@@ -338,12 +336,12 @@ void Alltoallsquare(double * data, int size){
                 MPI_COMM_LOCAL,&send_request);
     
     
-            MPI_Irecv(&(recv_data[i*k]), k, MPI_DOUBLE, 
+            MPI_Irecv(&(data_temp[i*k]), k, MPI_DOUBLE, 
                 (local_rank + k )% local_num_procs, 1234, MPI_COMM_LOCAL, &recv_request);
             MPI_Wait(&send_request,&status);
             MPI_Wait(&recv_request,&status);
             for(int j = 0; j < k; j++){
-                data[i*k+j] = recv_data[i*k+j];
+                data[i*k+j] = data_temp[i*k+j];
             }
         }
     }
@@ -376,8 +374,6 @@ void Alltoallsquare(double * data, int size){
 	    data[j*local_num_procs+i] = tmp;
         }
     }
-    //That's all folks
-    free(recv_data);
 }
 
 //main for testing and debugging
@@ -401,12 +397,12 @@ int main(int argc, char* argv[]){
 
     // correctness check
     MPI_Alltoall(check_data_send, 1, MPI_DOUBLE, check_data_recv, 1, MPI_DOUBLE, MPI_COMM_WORLD);
-    Alltoall4x4(data, data_temp, 16);
+    Alltoallsquare(data, data_temp, 16);
     for (int i = 0; i < 16; ++i)
         assert(data[i] == check_data_recv[i]);
 
     // warmup and barrier before timing local version
-    Alltoall4x4(data, data_temp, 16);
+    Alltoallsquare(data, data_temp, 16);
     MPI_Barrier(MPI_COMM_WORLD);
 
     // start timer
@@ -417,13 +413,13 @@ int main(int argc, char* argv[]){
 
     // alltoall many times
     for (int i = 0; i < num_measurements; ++i) {
-        Alltoall4x4(data, data_temp, 16);
+        Alltoallsquare(data, data_temp, 16);
     }
 
     // stop timer and print result
     if (rank == 0) {
         end = get_time();
-        printf("%s,%d,%d,%g\n", "Alltoall4x4", 16, 16, (end - start) / num_measurements); // csv row
+        printf("%s,%d,%d,%g\n", "Alltoallsquare", 16, 16, (end - start) / num_measurements); // csv row
     }
 
     // warmup and barrier before timing library version
