@@ -1,3 +1,5 @@
 #!/bin/bash
 module purge
-module load gcc openmpi cmake perf
+module load gcc 
+module load openmpi
+module load cmake
