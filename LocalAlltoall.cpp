@@ -4,6 +4,7 @@
 #include <time.h>
 #include <sys/time.h>
 #include <cassert>
+#include <cmath>
 
 // initialize_data gives all unique data.
 void initialize_data(double *data, int rank) {
@@ -213,12 +214,11 @@ void Alltoall4x4(double* data, double* data_temp, int size){
     }
 }   
 
-void Alltoallsquare(double * data, int size){
-        int rank, num_procs;
+void Alltoallsquare(double *data, double *data_temp, int size){
+    int rank, num_procs;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
     MPI_Status status;
-    int next_gap;
 
     //split by node
     MPI_Comm MPI_COMM_LOCAL;
@@ -253,21 +253,20 @@ void Alltoallsquare(double * data, int size){
     //local sends
 
     MPI_Request send_request, recv_request;
-    double* recv_data = new double[size];
     for(int k = 1; k <= localsends; k*=2){ 
-	printf("k = %d\n",k);
+	// printf("k = %d\n",k);
         for(int i = 0; i< local_num_procs/k;i++){
             if((i % 2) == 0) continue;
             MPI_Isend(&(data[i*local_num_procs*k]), local_num_procs*k, MPI_DOUBLE, (k+ local_rank) % local_num_procs, 1234, 
                 MPI_COMM_LOCAL,&send_request);
     
     
-            MPI_Irecv(&(recv_data[i*local_num_procs*k]), local_num_procs*k, MPI_DOUBLE, 
+            MPI_Irecv(&(data_temp[i*local_num_procs*k]), local_num_procs*k, MPI_DOUBLE, 
                 (local_rank - k) >= 0 ? local_rank -k: local_rank -k + local_num_procs, 1234, MPI_COMM_LOCAL, &recv_request);
             MPI_Wait(&send_request,&status);
             MPI_Wait(&recv_request,&status);
             for(int j =0; j < local_num_procs*k;j++){
-                data[i*local_num_procs*k + j] = (recv_data[i*local_num_procs*k + j]);
+                data[i*local_num_procs*k + j] = (data_temp[i*local_num_procs*k + j]);
             }
         }
     }
@@ -277,11 +276,11 @@ void Alltoallsquare(double * data, int size){
             MPI_COMM_WORLD,&send_request);
     
     
-    MPI_Irecv(recv_data, size, MPI_DOUBLE, nextsend, 1234, MPI_COMM_WORLD, &recv_request);
+    MPI_Irecv(data_temp, size, MPI_DOUBLE, nextsend, 1234, MPI_COMM_WORLD, &recv_request);
     MPI_Wait(&send_request,&status);
     MPI_Wait(&recv_request,&status);
     for(int j =0; j < size;j++){
-        data[j] = (recv_data[j]);
+        data[j] = (data_temp[j]);
     }
 
 
@@ -338,12 +337,12 @@ void Alltoallsquare(double * data, int size){
                 MPI_COMM_LOCAL,&send_request);
     
     
-            MPI_Irecv(&(recv_data[i*k]), k, MPI_DOUBLE, 
+            MPI_Irecv(&(data_temp[i*k]), k, MPI_DOUBLE, 
                 (local_rank + k )% local_num_procs, 1234, MPI_COMM_LOCAL, &recv_request);
             MPI_Wait(&send_request,&status);
             MPI_Wait(&recv_request,&status);
             for(int j = 0; j < k; j++){
-                data[i*k+j] = recv_data[i*k+j];
+                data[i*k+j] = data_temp[i*k+j];
             }
         }
     }
@@ -376,8 +375,6 @@ void Alltoallsquare(double * data, int size){
 	    data[j*local_num_procs+i] = tmp;
         }
     }
-    //That's all folks
-    free(recv_data);
 }
 
 //main for testing and debugging
@@ -386,27 +383,28 @@ int main(int argc, char* argv[]){
     int rank, num_procs;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
-    static const int num_measurements = 1000;
+    static const int num_measurements = 10000;
+    int num_doubles = num_procs;
 
     // print csv header
-    if (rank == 0)
-        printf("algorithm,num_procs,num_doubles_per_proc,seconds\n");
+    //if (rank == 0)
+    //    printf("algorithm,num_procs,num_doubles_per_proc,seconds\n");
 
-    double* data = new double[16];
-    double* data_temp = new double[16];
-    double* check_data_send = new double[16];
-    double* check_data_recv = new double[16];
-    initialize_data(data, rank);
-    initialize_data(check_data_send, rank);
+    double* data = new double[num_doubles];
+    double* data_temp = new double[num_doubles];
+    //double* check_data_send = new double[num_doubles];
+    //double* check_data_recv = new double[num_doubles];
+    //initialize_data(data, rank);
+    //initialize_data(check_data_send, rank);
 
     // correctness check
-    MPI_Alltoall(check_data_send, 1, MPI_DOUBLE, check_data_recv, 1, MPI_DOUBLE, MPI_COMM_WORLD);
-    Alltoall4x4(data, data_temp, 16);
-    for (int i = 0; i < 16; ++i)
-        assert(data[i] == check_data_recv[i]);
+    //MPI_Alltoall(check_data_send, 1, MPI_DOUBLE, check_data_recv, 1, MPI_DOUBLE, MPI_COMM_WORLD);
+    //Alltoallsquare(data, data_temp, num_doubles);
+    //for (int i = 0; i < num_doubles; ++i)
+        //assert(abs(data[i] - check_data_recv[i]) <= 1e-5);
 
     // warmup and barrier before timing local version
-    Alltoall4x4(data, data_temp, 16);
+    Alltoallsquare(data, data_temp, num_doubles);
     MPI_Barrier(MPI_COMM_WORLD);
 
     // start timer
@@ -417,39 +415,20 @@ int main(int argc, char* argv[]){
 
     // alltoall many times
     for (int i = 0; i < num_measurements; ++i) {
-        Alltoall4x4(data, data_temp, 16);
+        Alltoallsquare(data, data_temp, num_doubles);
     }
 
     // stop timer and print result
     if (rank == 0) {
         end = get_time();
-        printf("%s,%d,%d,%g\n", "Alltoall4x4", 16, 16, (end - start) / num_measurements); // csv row
-    }
-
-    // warmup and barrier before timing library version
-    MPI_Alltoall(check_data_send, 1, MPI_DOUBLE, check_data_recv, 1, MPI_DOUBLE, MPI_COMM_WORLD);
-    MPI_Barrier(MPI_COMM_WORLD);
-
-    // start timer
-    if (rank == 0)
-        start = get_time();
-
-    // alltoall many times
-    for (int i = 0; i < num_measurements; ++i) {
-        MPI_Alltoall(check_data_send, 1, MPI_DOUBLE, check_data_recv, 1, MPI_DOUBLE, MPI_COMM_WORLD);
-    }
-
-    // stop timer and print result
-    if (rank == 0) {
-        end = get_time();
-        printf("%s,%d,%d,%g\n", "MPI_Alltoall", 16, 16, (end - start) / num_measurements); // csv row
+        printf("%s,%d,%d,%g\n", "Alltoallsquare", num_procs, num_doubles, (end - start) / num_measurements); // csv row
     }
 
     // That's all folks!
     delete[] data;
     delete[] data_temp;
-    delete[] check_data_send;
-    delete[] check_data_recv;
+    //delete[] check_data_send;
+    //delete[] check_data_recv;
     MPI_Finalize();
     return 0;
 }
