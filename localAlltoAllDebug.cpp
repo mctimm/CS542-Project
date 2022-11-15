@@ -306,7 +306,7 @@ void Alltoallsquare(double * data, int size, int partition){
     double* recv_data = new double[size];
     for(int k = 1; k <= localsends; k*=2){ 
 	printf("k = %d\n",k);
-        for(int i = 0; i< local_num_procs/k;i++){
+        for(int i = 0; i< size/k;i++){
             if((i % 2) == 0) continue;
             MPI_Isend(&(data[i*local_num_procs*k]), local_num_procs*k, MPI_DOUBLE, (k+ local_rank) % local_num_procs, 1234, 
                 MPI_COMM_LOCAL,&send_request);
@@ -350,7 +350,7 @@ void Alltoallsquare(double * data, int size, int partition){
 
     }
     //reverse and rotate data
-    for(int i = 0; i < local_num_procs;i++){
+    for(int i = 0; i < size/local_num_procs;i++){
         
         int start = i*local_num_procs;
         int end = (1+i)*local_num_procs - 1;
@@ -447,7 +447,7 @@ void Alltoallsquare(double * data, int size, int partition){
     }
     //REVERSE AMONG GROUPS (NOT WITHIN)
 
-    for(int i = 0; i < local_num_procs/2;i++){
+    for(int i = 0; i < (size/local_num_procs)/2;i++){
         for(int j = 0; j < local_num_procs;j++){
             double tmp = data[i*local_num_procs+j];
             data[i*local_num_procs + j] = data[(local_num_procs-1 -i)*local_num_procs + j];
@@ -458,14 +458,19 @@ void Alltoallsquare(double * data, int size, int partition){
         for(int i = 0; i < size;i++)
         printf("process %d, data[%d] == %x\n",rank,i,int(data[i]));
     }
+
+
     //TRANSPOSE (ARRAY[I*PPN+J] = ARRAY[J*PPN+1])
-    for(int i = 0; i < local_num_procs;i++){
-        for(int j = i; j < local_num_procs;j++){
-	    double tmp =  data[i*local_num_procs+j];
-            data[i*local_num_procs+j] = data[j*local_num_procs+i];
-	    data[j*local_num_procs+i] = tmp;
+    for(int i = 0; i < size; i++){
+        recv_data[i] = data[i]; //making the transpose easier.
+    }
+
+    for(int i = 0; i < (size/local_num_procs);i++){
+        for(int j = 0; j < local_num_procs;j++){ 
+            data[j*local_num_procs+i] = recv_data[i*size + j];
         }
     }
+    
     if(rank == 1){
         for(int i = 0; i < size;i++)
         printf("process %d, data[%d] == %x\n",rank,i,int(data[i]));
@@ -481,13 +486,13 @@ int main(int argc, char* argv[]){
     int rank, num_procs;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
-    double* data = new double[64];
-    for(int i = 0; i < 64;i++){
-        data[i] = 64*(rank) + i; //giving all unique data.
+    double* data = new double[8];
+    for(int i = 0; i < 8;i++){
+        data[i] = 8*(rank) + i; //giving all unique data.
     }
 
-    Alltoallsquare(data,64,8);
-    for(int i = 0; i < 64;i++){
+    Alltoallsquare(data,8,2);
+    for(int i = 0; i < 8;i++){
         printf("process %d, data[%d] == %x\n",rank,i,int(data[i]));
     }
 
