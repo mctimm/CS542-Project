@@ -398,6 +398,7 @@ void AlltoallVarSize(double *data, double *data_temp, int size, int recv_size){
     int node = rank/local_num_procs; //bit of integer division for the nodes, assuming alignment
 
 
+    
     //printf("%d proc, %d local\n", rank,local_rank);
     //return;
     //calculate number
@@ -413,7 +414,9 @@ void AlltoallVarSize(double *data, double *data_temp, int size, int recv_size){
             tmp = tmp2;
         }
         data[size-1] = tmp;
+    
     }
+    
     //local sends
 
     MPI_Request send_request, recv_request;
@@ -434,6 +437,7 @@ void AlltoallVarSize(double *data, double *data_temp, int size, int recv_size){
             }
         }
     }
+    
     //global send.
     int nextsend = local_num_procs * local_rank + node; //calculate who to send to.
     MPI_Isend(data, size, MPI_DOUBLE, nextsend, 1234, 
@@ -448,7 +452,7 @@ void AlltoallVarSize(double *data, double *data_temp, int size, int recv_size){
     }
 
 
-
+    
     
     //reverse and rotate data
     for(int i = 0; i < local_num_procs;i++){
@@ -458,7 +462,9 @@ void AlltoallVarSize(double *data, double *data_temp, int size, int recv_size){
         while (start < end)
         {
             for(int j = 0; j < recv_size;j++){
-                data[start*recv_size+j] = data[end*recv_size+j]
+		double tmp = data[start*recv_size+j];
+                data[start*recv_size+j] = data[end*recv_size+j];
+		data[end*recv_size+j] = tmp;
             }
             //double tmp = data[start];
             //data[start] = data[end];
@@ -481,7 +487,7 @@ void AlltoallVarSize(double *data, double *data_temp, int size, int recv_size){
         }
         data[size-1] = tmp;
     }
-
+    
     
 
     //ROTATE UP PPN - LOCAL_RANK - 1
@@ -547,7 +553,6 @@ void AlltoallVarSize(double *data, double *data_temp, int size, int recv_size){
         }
     }
 }
-
 
 //main for testing and debugging
 int main(int argc, char* argv[]){
