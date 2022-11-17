@@ -501,7 +501,7 @@ data[count++] = recv_data[i*local_num_procs + ( k % (size/(local_num_procs * loc
 }
 
 
-void AlltoallVarSize(double *data, double *data_temp, int size, int recv_size){
+void AlltoallVarSize(double *data,int partition, double *data_temp, int size, int recv_size){
     int rank, num_procs;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
@@ -536,6 +536,12 @@ void AlltoallVarSize(double *data, double *data_temp, int size, int recv_size){
             tmp = tmp2;
         }
         data[size-1] = tmp;
+    
+    }
+    if(rank == 0){
+    for(int i = 0; i < size;i++){
+        printf("process %d, data[%d] == %x\n",rank,i,int(data[i]));
+    }
     }
     //local sends
 
@@ -557,6 +563,11 @@ void AlltoallVarSize(double *data, double *data_temp, int size, int recv_size){
             }
         }
     }
+    if(rank == 0){
+    for(int i = 0; i < size;i++){
+        printf("process %d, data[%d] == %x\n",rank,i,int(data[i]));
+    }
+    }
     //global send.
     int nextsend = local_num_procs * local_rank + node; //calculate who to send to.
     MPI_Isend(data, size, MPI_DOUBLE, nextsend, 1234, 
@@ -571,7 +582,11 @@ void AlltoallVarSize(double *data, double *data_temp, int size, int recv_size){
     }
 
 
-
+    if(rank == 0){
+    for(int i = 0; i < size;i++){
+        printf("process %d, data[%d] == %x\n",rank,i,int(data[i]));
+    }
+    }
     
     //reverse and rotate data
     for(int i = 0; i < local_num_procs;i++){
@@ -581,7 +596,9 @@ void AlltoallVarSize(double *data, double *data_temp, int size, int recv_size){
         while (start < end)
         {
             for(int j = 0; j < recv_size;j++){
-                data[start*recv_size+j] = data[end*recv_size+j]
+		double tmp = data[start*recv_size+j];
+                data[start*recv_size+j] = data[end*recv_size+j];
+		data[end*recv_size+j] = tmp;
             }
             //double tmp = data[start];
             //data[start] = data[end];
@@ -593,7 +610,11 @@ void AlltoallVarSize(double *data, double *data_temp, int size, int recv_size){
     }
     
 
-    
+    if(rank == 0){
+    for(int i = 0; i < size;i++){
+        printf("reverse process %d, data[%d] == %x\n",rank,i,int(data[i]));
+    }
+    }
     for(int i = 0; i < (node+1) * local_num_procs * recv_size;i++){
         double tmp = data[size-1];
         double tmp2;
@@ -604,7 +625,11 @@ void AlltoallVarSize(double *data, double *data_temp, int size, int recv_size){
         }
         data[size-1] = tmp;
     }
-
+    if(rank == 0){
+    for(int i = 0; i < size;i++){
+        printf("process %d, data[%d] == %x\n",rank,i,int(data[i]));
+    }
+    }
     
 
     //ROTATE UP PPN - LOCAL_RANK - 1
@@ -686,7 +711,7 @@ int main(int argc, char* argv[]){
     }
 
     //Alltoallsquare(data,size,4);
-    AlltoallVarSize(data, data_temp, size, 2);
+    AlltoallVarSize(data,4, data_temp, size, 2);
     for(int i = 0; i < size;i++){
         printf("process %d, data[%d] == %x\n",rank,i,int(data[i]));
     }
