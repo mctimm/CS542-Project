@@ -34,7 +34,7 @@ int main(int argc, char* argv[]){
     //    printf("algorithm,num_procs,num_doubles_per_proc,seconds\n");
 
     // outer loop to test many message sizes
-    for (int i = num_procs; i < 15; ++i) {
+    for (int i = log2(num_procs); i < 15; ++i) {
         int num_doubles = pow(2, i);
         int chunk_size = num_doubles / num_procs;
 

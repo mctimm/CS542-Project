@@ -567,13 +567,19 @@ int main(int argc, char* argv[]){
     //    printf("algorithm,num_procs,num_doubles_per_proc,seconds\n");
 
     // outer loop to test many message sizes
-    for (int i = num_procs; i < 15; ++i) {
+    for (int i = log2(num_procs); i < 15; ++i) {
         int num_doubles = pow(2, i);
         int chunk_size = num_doubles / num_procs;
 
         // skip chunk sizes that don't fit evenly
         if (num_doubles % num_procs != 0)
             continue;
+
+        if (rank == 0) {
+            fprintf(stderr, "[DEBUG] num_doubles=%d\n", num_doubles);
+            fprintf(stderr, "[DEBUG] chunk_size=%d\n", chunk_size);
+            fprintf(stderr, "[DEBUG] num_procs=%d\n", num_procs);
+        }
 
         double* data = new double[num_doubles];
         double* data_temp = new double[num_doubles];
@@ -606,6 +612,7 @@ int main(int argc, char* argv[]){
         // stop timer and print result
         if (rank == 0) {
             end = get_time();
+            // append time
             printf("%s,%d,%d,%g\n", "AlltoallVarSize", num_procs, num_doubles, (end - start) / num_measurements); // csv row
         }
 
