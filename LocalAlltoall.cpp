@@ -560,53 +560,62 @@ int main(int argc, char* argv[]){
     int rank, num_procs;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
-    static const int num_measurements = 10000;
-    int chunk_size = 100; // TODO set with command line arg
-    int num_doubles = num_procs * chunk_size;
+    static const int num_measurements = 1000;
 
     // print csv header
     //if (rank == 0)
     //    printf("algorithm,num_procs,num_doubles_per_proc,seconds\n");
 
-    double* data = new double[num_doubles];
-    double* data_temp = new double[num_doubles];
-    double* check_data_send = new double[num_doubles];
-    double* check_data_recv = new double[num_doubles];
-    initialize_data(data, rank);
-    initialize_data(check_data_send, rank);
+    // outer loop to test many message sizes
+    for (int i = 0; i < 15; ++i) {
+        int num_doubles = pow(2, i);
+        int chunk_size = num_doubles / num_procs;
 
-    // correctness check
-    MPI_Alltoall(check_data_send, chunk_size, MPI_DOUBLE, check_data_recv, chunk_size, MPI_DOUBLE, MPI_COMM_WORLD);
-    AlltoallVarSize(data, data_temp, num_doubles, chunk_size);
-    for (int i = 0; i < num_doubles; ++i)
-        assert(abs(data[i] - check_data_recv[i]) <= 1e-5);
+        // skip chunk sizes that don't fit evenly
+        if (num_doubles % num_procs != 0)
+            continue;
 
-    // warmup and barrier before timing local version
-    AlltoallVarSize(data, data_temp, num_doubles, chunk_size);
-    MPI_Barrier(MPI_COMM_WORLD);
+        double* data = new double[num_doubles];
+        double* data_temp = new double[num_doubles];
+        double* check_data_send = new double[num_doubles];
+        double* check_data_recv = new double[num_doubles];
+        initialize_data(data, rank);
+        initialize_data(check_data_send, rank);
 
-    // start timer
-    double start = 0;
-    double end = 0;
-    if (rank == 0)
-        start = get_time();
-
-    // alltoall many times
-    for (int i = 0; i < num_measurements; ++i) {
+        // correctness check
+        MPI_Alltoall(check_data_send, chunk_size, MPI_DOUBLE, check_data_recv, chunk_size, MPI_DOUBLE, MPI_COMM_WORLD);
         AlltoallVarSize(data, data_temp, num_doubles, chunk_size);
+        for (int i = 0; i < num_doubles; ++i)
+            assert(abs(data[i] - check_data_recv[i]) <= 1e-5);
+
+        // warmup and barrier before timing local version
+        AlltoallVarSize(data, data_temp, num_doubles, chunk_size);
+        MPI_Barrier(MPI_COMM_WORLD);
+
+        // start timer
+        double start = 0;
+        double end = 0;
+        if (rank == 0)
+            start = get_time();
+
+        // alltoall many times
+        for (int i = 0; i < num_measurements; ++i) {
+            AlltoallVarSize(data, data_temp, num_doubles, chunk_size);
+        }
+
+        // stop timer and print result
+        if (rank == 0) {
+            end = get_time();
+            printf("%s,%d,%d,%g\n", "AlltoallVarSize", num_procs, num_doubles, (end - start) / num_measurements); // csv row
+        }
+
+        // That's all folks!
+        delete[] data;
+        delete[] data_temp;
+        delete[] check_data_send;
+        delete[] check_data_recv;
     }
 
-    // stop timer and print result
-    if (rank == 0) {
-        end = get_time();
-        printf("%s,%d,%d,%g\n", "AlltoallVarSize", num_procs, num_doubles, (end - start) / num_measurements); // csv row
-    }
-
-    // That's all folks!
-    delete[] data;
-    delete[] data_temp;
-    delete[] check_data_send;
-    delete[] check_data_recv;
     MPI_Finalize();
     return 0;
 }
