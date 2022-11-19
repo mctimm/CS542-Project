@@ -554,6 +554,13 @@ void AlltoallVarSize(double *data, double *data_temp, int size, int recv_size){
     }
 }
 
+void assert_doubles_approx_equal(double want, double got, double tolerance) {
+    if (abs(want-got) > tolerance) {
+        fprintf(stderr, "[ERROR] assert double: want %g, got %g\n", want, got);
+    }
+    assert(abs(want-got) <= tolerance);
+}
+
 //main for testing and debugging
 int main(int argc, char* argv[]){
     MPI_Init(&argc,&argv);
@@ -592,7 +599,7 @@ int main(int argc, char* argv[]){
         MPI_Alltoall(check_data_send, chunk_size, MPI_DOUBLE, check_data_recv, chunk_size, MPI_DOUBLE, MPI_COMM_WORLD);
         AlltoallVarSize(data, data_temp, num_doubles, chunk_size);
         for (int i = 0; i < num_doubles; ++i)
-            assert(abs(data[i] - check_data_recv[i]) <= 1e-5);
+            assert_doubles_approx_equal(check_data_recv[i], data[i], 1e-5);
 
         // warmup and barrier before timing local version
         AlltoallVarSize(data, data_temp, num_doubles, chunk_size);
