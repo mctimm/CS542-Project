@@ -561,7 +561,8 @@ int main(int argc, char* argv[]){
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
     static const int num_measurements = 10000;
-    int num_doubles = num_procs;
+    int chunk_size = 100; // TODO set with command line arg
+    int num_doubles = num_procs * chunk_size;
 
     // print csv header
     //if (rank == 0)
@@ -569,19 +570,19 @@ int main(int argc, char* argv[]){
 
     double* data = new double[num_doubles];
     double* data_temp = new double[num_doubles];
-    //double* check_data_send = new double[num_doubles];
-    //double* check_data_recv = new double[num_doubles];
-    //initialize_data(data, rank);
-    //initialize_data(check_data_send, rank);
+    double* check_data_send = new double[num_doubles];
+    double* check_data_recv = new double[num_doubles];
+    initialize_data(data, rank);
+    initialize_data(check_data_send, rank);
 
     // correctness check
-    //MPI_Alltoall(check_data_send, 1, MPI_DOUBLE, check_data_recv, 1, MPI_DOUBLE, MPI_COMM_WORLD);
-    //Alltoallsquare(data, data_temp, num_doubles);
-    //for (int i = 0; i < num_doubles; ++i)
-        //assert(abs(data[i] - check_data_recv[i]) <= 1e-5);
+    MPI_Alltoall(check_data_send, chunk_size, MPI_DOUBLE, check_data_recv, chunk_size, MPI_DOUBLE, MPI_COMM_WORLD);
+    AlltoallVarSize(data, data_temp, num_doubles, chunk_size);
+    for (int i = 0; i < num_doubles; ++i)
+        assert(abs(data[i] - check_data_recv[i]) <= 1e-5);
 
     // warmup and barrier before timing local version
-    Alltoallsquare(data, data_temp, num_doubles);
+    AlltoallVarSize(data, data_temp, num_doubles, chunk_size);
     MPI_Barrier(MPI_COMM_WORLD);
 
     // start timer
@@ -592,20 +593,20 @@ int main(int argc, char* argv[]){
 
     // alltoall many times
     for (int i = 0; i < num_measurements; ++i) {
-        Alltoallsquare(data, data_temp, num_doubles);
+        AlltoallVarSize(data, data_temp, num_doubles, chunk_size);
     }
 
     // stop timer and print result
     if (rank == 0) {
         end = get_time();
-        printf("%s,%d,%d,%g\n", "Alltoallsquare", num_procs, num_doubles, (end - start) / num_measurements); // csv row
+        printf("%s,%d,%d,%g\n", "AlltoallVarSize", num_procs, num_doubles, (end - start) / num_measurements); // csv row
     }
 
     // That's all folks!
     delete[] data;
     delete[] data_temp;
-    //delete[] check_data_send;
-    //delete[] check_data_recv;
+    delete[] check_data_send;
+    delete[] check_data_recv;
     MPI_Finalize();
     return 0;
 }
