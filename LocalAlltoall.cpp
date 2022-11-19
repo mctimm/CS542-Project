@@ -29,9 +29,9 @@ void Alltoall4x4(double* data, double* data_temp, int size){
     //split by node
     MPI_Comm MPI_COMM_LOCAL;
 
-    MPI_Comm_split_type(MPI_COMM_WORLD,  
-        MPI_COMM_TYPE_SHARED,  
-        rank, MPI_INFO_NULL,  
+    MPI_Comm_split_type(MPI_COMM_WORLD,
+        MPI_COMM_TYPE_SHARED,
+        rank, MPI_INFO_NULL,
         &MPI_COMM_LOCAL);
 
     int local_rank, local_num_procs;
@@ -56,18 +56,18 @@ void Alltoall4x4(double* data, double* data_temp, int size){
         data[size-1] = tmp;
     }
 
-    
-    
+
+
     //first send
     MPI_Request send_request, recv_request;
 
     for(int i = 0; i< local_num_procs;i++){
         if((i % 2) == 0) continue;
-        MPI_Isend(&(data[i*local_num_procs]), local_num_procs, MPI_DOUBLE, (1+ local_rank) % local_num_procs, 1234, 
+        MPI_Isend(&(data[i*local_num_procs]), local_num_procs, MPI_DOUBLE, (1+ local_rank) % local_num_procs, 1234,
             MPI_COMM_LOCAL,&send_request);
-    
-    
-        MPI_Irecv(&(data_temp[i*local_num_procs]), local_num_procs, MPI_DOUBLE, 
+
+
+        MPI_Irecv(&(data_temp[i*local_num_procs]), local_num_procs, MPI_DOUBLE,
             (local_rank - 1) >= 0 ? local_rank -1: local_rank -1 + local_num_procs, 1234, MPI_COMM_LOCAL, &recv_request);
         MPI_Wait(&send_request,&status);
         MPI_Wait(&recv_request,&status);
@@ -75,19 +75,19 @@ void Alltoall4x4(double* data, double* data_temp, int size){
             data[i*local_num_procs + j] = (data_temp[i*local_num_procs + j]);
         }
     }
-    
 
 
-    
-    
+
+
+
     //second send.
     for(int i = 0; i< local_num_procs/2;i++){
         if((i % 2) == 0) continue;
-        MPI_Isend(&(data[i*local_num_procs*2]), local_num_procs*2, MPI_DOUBLE, (2 + local_rank) % local_num_procs, 1234, 
+        MPI_Isend(&(data[i*local_num_procs*2]), local_num_procs*2, MPI_DOUBLE, (2 + local_rank) % local_num_procs, 1234,
             MPI_COMM_LOCAL,&send_request);
-    
-    
-        MPI_Irecv(&(data_temp[i*local_num_procs*2]), local_num_procs*2, MPI_DOUBLE, 
+
+
+        MPI_Irecv(&(data_temp[i*local_num_procs*2]), local_num_procs*2, MPI_DOUBLE,
             (local_rank - 2) >= 0 ? local_rank -2: local_rank -2 + local_num_procs, 1234, MPI_COMM_LOCAL, &recv_request);
         MPI_Wait(&send_request,&status);
         MPI_Wait(&recv_request,&status);
@@ -95,24 +95,24 @@ void Alltoall4x4(double* data, double* data_temp, int size){
             data[i*local_num_procs*2 + j] = (data_temp[i*local_num_procs*2 + j]);
         }
     }
-    
+
 
     //global send.
     int nextsend = local_num_procs * local_rank + node; //calculate who to send to.
-    MPI_Isend(data, size, MPI_DOUBLE, nextsend, 1234, 
+    MPI_Isend(data, size, MPI_DOUBLE, nextsend, 1234,
             MPI_COMM_WORLD,&send_request);
-    
-    
+
+
     MPI_Irecv(data_temp, size, MPI_DOUBLE, nextsend, 1234, MPI_COMM_WORLD, &recv_request);
     MPI_Wait(&send_request,&status);
     MPI_Wait(&recv_request,&status);
     for(int j =0; j < size;j++){
         data[j] = (data_temp[j]);
     }
-    
+
     //reverse and rotate data
     for(int i = 0; i < local_num_procs;i++){
-        
+
         int start = i*local_num_procs;
         int end = (1+i)*local_num_procs - 1;
         while (start < end)
@@ -123,9 +123,9 @@ void Alltoall4x4(double* data, double* data_temp, int size){
             start++;
             end--;
         }
-        
+
     }
-    
+
     for(int i = 0; i < (node+1) * local_num_procs;i++){
         double tmp = data[size-1];
         double tmp2;
@@ -137,7 +137,7 @@ void Alltoall4x4(double* data, double* data_temp, int size){
         data[size-1] = tmp;
     }
 
-    
+
     //ROTATE UP PPN - LOCAL_RANK - 1
     for(int i = 0; i< local_num_procs - local_rank-1;i++){
         double tmp = data[size-1];
@@ -149,39 +149,39 @@ void Alltoall4x4(double* data, double* data_temp, int size){
         }
         data[size-1] = tmp;
     }
-    
+
     //SEND GROUPS OF 1 ROW TO LEFT 1 PROC, LOCALLY (P3 TO P0)
     for(int i = 0; i < size;i++){
         if((i % 2) == 0) continue;
-        MPI_Isend(&(data[i]), 1, MPI_DOUBLE,  (local_rank - 1) >= 0 ? local_rank -1: local_rank -1 + local_num_procs, 1234, 
+        MPI_Isend(&(data[i]), 1, MPI_DOUBLE,  (local_rank - 1) >= 0 ? local_rank -1: local_rank -1 + local_num_procs, 1234,
             MPI_COMM_LOCAL,&send_request);
-    
-    
-        MPI_Irecv(&(data_temp[i]), 1, MPI_DOUBLE, 
+
+
+        MPI_Irecv(&(data_temp[i]), 1, MPI_DOUBLE,
             (local_rank + 1 )% local_num_procs, 1234, MPI_COMM_LOCAL, &recv_request);
         MPI_Wait(&send_request,&status);
         MPI_Wait(&recv_request,&status);
         data[i] = data_temp[i];
     }
 
-    
+
 
     //SEND GROUPS OF 2 ROWS TO LEFT 2 PROC, LOCALLY (P3 TO P1)
     for(int i = 0; i < size/2;i++){
         if((i % 2) == 0) continue;
-        MPI_Isend(&(data[i*2]), 2, MPI_DOUBLE,  (local_rank - 2 )>= 0 ? local_rank -2: local_rank -2+ local_num_procs, 1234, 
+        MPI_Isend(&(data[i*2]), 2, MPI_DOUBLE,  (local_rank - 2 )>= 0 ? local_rank -2: local_rank -2+ local_num_procs, 1234,
             MPI_COMM_LOCAL,&send_request);
-    
-    
-        MPI_Irecv(&(data_temp[i*2]), 2, MPI_DOUBLE, 
+
+
+        MPI_Irecv(&(data_temp[i*2]), 2, MPI_DOUBLE,
            (local_rank + 2 )% local_num_procs, 1234, MPI_COMM_LOCAL, &recv_request);
         MPI_Wait(&send_request,&status);
         MPI_Wait(&recv_request,&status);
-        
+
         data[i*2] = data_temp[i*2];
         data[i*2 + 1] = data_temp[i*2+1];
     }
-    
+
     //ROTATE UP BY LOCAL RANK
     for(int i = 0; i< local_rank;i++){
         double tmp = data[0];
@@ -193,7 +193,7 @@ void Alltoall4x4(double* data, double* data_temp, int size){
         }
         data[0] = tmp;
     }
-    
+
     //REVERSE AMONG GROUPS (NOT WITHIN)
 
     for(int i = 0; i < local_num_procs/2;i++){
@@ -201,9 +201,9 @@ void Alltoall4x4(double* data, double* data_temp, int size){
             double tmp = data[i*local_num_procs+j];
             data[i*local_num_procs + j] = data[(local_num_procs-1 -i)*local_num_procs + j];
             data[(local_num_procs-1 -i)*local_num_procs + j] = tmp;
-        }   
+        }
     }
-    
+
     //TRANSPOSE (ARRAY[I*PPN+J] = ARRAY[J*PPN+1])
     for(int i = 0; i < local_num_procs;i++){
         for(int j = i; j < local_num_procs;j++){
@@ -212,7 +212,7 @@ void Alltoall4x4(double* data, double* data_temp, int size){
 	    data[j*local_num_procs+i] = tmp;
         }
     }
-}   
+}
 
 void Alltoallsquare(double *data, double *data_temp, int size){
     int rank, num_procs;
@@ -223,9 +223,9 @@ void Alltoallsquare(double *data, double *data_temp, int size){
     //split by node
     MPI_Comm MPI_COMM_LOCAL;
 
-    MPI_Comm_split_type(MPI_COMM_WORLD,  
-        MPI_COMM_TYPE_SHARED,  
-        rank, MPI_INFO_NULL,  
+    MPI_Comm_split_type(MPI_COMM_WORLD,
+        MPI_COMM_TYPE_SHARED,
+        rank, MPI_INFO_NULL,
         &MPI_COMM_LOCAL);
 
     int local_rank, local_num_procs;
@@ -253,15 +253,15 @@ void Alltoallsquare(double *data, double *data_temp, int size){
     //local sends
 
     MPI_Request send_request, recv_request;
-    for(int k = 1; k <= localsends; k*=2){ 
+    for(int k = 1; k <= localsends; k*=2){
 	// printf("k = %d\n",k);
         for(int i = 0; i< local_num_procs/k;i++){
             if((i % 2) == 0) continue;
-            MPI_Isend(&(data[i*local_num_procs*k]), local_num_procs*k, MPI_DOUBLE, (k+ local_rank) % local_num_procs, 1234, 
+            MPI_Isend(&(data[i*local_num_procs*k]), local_num_procs*k, MPI_DOUBLE, (k+ local_rank) % local_num_procs, 1234,
                 MPI_COMM_LOCAL,&send_request);
-    
-    
-            MPI_Irecv(&(data_temp[i*local_num_procs*k]), local_num_procs*k, MPI_DOUBLE, 
+
+
+            MPI_Irecv(&(data_temp[i*local_num_procs*k]), local_num_procs*k, MPI_DOUBLE,
                 (local_rank - k) >= 0 ? local_rank -k: local_rank -k + local_num_procs, 1234, MPI_COMM_LOCAL, &recv_request);
             MPI_Wait(&send_request,&status);
             MPI_Wait(&recv_request,&status);
@@ -272,10 +272,10 @@ void Alltoallsquare(double *data, double *data_temp, int size){
     }
     //global send.
     int nextsend = local_num_procs * local_rank + node; //calculate who to send to.
-    MPI_Isend(data, size, MPI_DOUBLE, nextsend, 1234, 
+    MPI_Isend(data, size, MPI_DOUBLE, nextsend, 1234,
             MPI_COMM_WORLD,&send_request);
-    
-    
+
+
     MPI_Irecv(data_temp, size, MPI_DOUBLE, nextsend, 1234, MPI_COMM_WORLD, &recv_request);
     MPI_Wait(&send_request,&status);
     MPI_Wait(&recv_request,&status);
@@ -285,10 +285,10 @@ void Alltoallsquare(double *data, double *data_temp, int size){
 
 
 
-    
+
     //reverse and rotate data
     for(int i = 0; i < local_num_procs;i++){
-        
+
         int start = i*local_num_procs;
         int end = (1+i)*local_num_procs - 1;
         while (start < end)
@@ -299,11 +299,11 @@ void Alltoallsquare(double *data, double *data_temp, int size){
             start++;
             end--;
         }
-        
-    }
-    
 
-    
+    }
+
+
+
     for(int i = 0; i < (node+1) * local_num_procs;i++){
         double tmp = data[size-1];
         double tmp2;
@@ -315,7 +315,7 @@ void Alltoallsquare(double *data, double *data_temp, int size){
         data[size-1] = tmp;
     }
 
-    
+
 
     //ROTATE UP PPN - LOCAL_RANK - 1
     for(int i = 0; i< local_num_procs - local_rank-1;i++){
@@ -328,16 +328,16 @@ void Alltoallsquare(double *data, double *data_temp, int size){
         }
         data[size-1] = tmp;
     }
-    
+
     //second local sends
     for(int k = 1; k <= localsends; k*=2){
         for(int i = 0; i < size/k;i++){
             if((i % 2) == 0) continue;
-            MPI_Isend(&(data[i*k]), k, MPI_DOUBLE,  (local_rank - k) >= 0 ? local_rank -k: local_rank -k + local_num_procs, 1234, 
+            MPI_Isend(&(data[i*k]), k, MPI_DOUBLE,  (local_rank - k) >= 0 ? local_rank -k: local_rank -k + local_num_procs, 1234,
                 MPI_COMM_LOCAL,&send_request);
-    
-    
-            MPI_Irecv(&(data_temp[i*k]), k, MPI_DOUBLE, 
+
+
+            MPI_Irecv(&(data_temp[i*k]), k, MPI_DOUBLE,
                 (local_rank + k )% local_num_procs, 1234, MPI_COMM_LOCAL, &recv_request);
             MPI_Wait(&send_request,&status);
             MPI_Wait(&recv_request,&status);
@@ -347,7 +347,7 @@ void Alltoallsquare(double *data, double *data_temp, int size){
         }
     }
 
-    
+
     //ROTATE UP BY LOCAL RANK
     for(int i = 0; i< local_rank;i++){
         double tmp = data[0];
@@ -365,7 +365,7 @@ void Alltoallsquare(double *data, double *data_temp, int size){
             double tmp = data[i*local_num_procs+j];
             data[i*local_num_procs + j] = data[(local_num_procs-1 -i)*local_num_procs + j];
             data[(local_num_procs-1 -i)*local_num_procs + j] = tmp;
-        }   
+        }
     }
     //TRANSPOSE (ARRAY[I*PPN+J] = ARRAY[J*PPN+1])
     for(int i = 0; i < local_num_procs;i++){
@@ -387,9 +387,9 @@ void AlltoallVarSize(double *data, double *data_temp, int size, int recv_size){
     //split by node
     MPI_Comm MPI_COMM_LOCAL;
 
-    MPI_Comm_split_type(MPI_COMM_WORLD,  
-        MPI_COMM_TYPE_SHARED,  
-        rank, MPI_INFO_NULL,  
+    MPI_Comm_split_type(MPI_COMM_WORLD,
+        MPI_COMM_TYPE_SHARED,
+        rank, MPI_INFO_NULL,
         &MPI_COMM_LOCAL);
 
     int local_rank, local_num_procs;
@@ -398,7 +398,7 @@ void AlltoallVarSize(double *data, double *data_temp, int size, int recv_size){
     int node = rank/local_num_procs; //bit of integer division for the nodes, assuming alignment
 
 
-    
+
     //printf("%d proc, %d local\n", rank,local_rank);
     //return;
     //calculate number
@@ -414,21 +414,21 @@ void AlltoallVarSize(double *data, double *data_temp, int size, int recv_size){
             tmp = tmp2;
         }
         data[size-1] = tmp;
-    
+
     }
-    
+
     //local sends
 
     MPI_Request send_request, recv_request;
-    for(int k = 1; k <= localsends; k*=2){ 
+    for(int k = 1; k <= localsends; k*=2){
 	// printf("k = %d\n",k);
         for(int i = 0; i< local_num_procs/k;i++){
             if((i % 2) == 0) continue;
-            MPI_Isend(&(data[i*local_num_procs*k*recv_size]), local_num_procs*k*recv_size, MPI_DOUBLE, (k+ local_rank) % local_num_procs, 1234, 
+            MPI_Isend(&(data[i*local_num_procs*k*recv_size]), local_num_procs*k*recv_size, MPI_DOUBLE, (k+ local_rank) % local_num_procs, 1234,
                 MPI_COMM_LOCAL,&send_request);
-    
-    
-            MPI_Irecv(&(data_temp[i*local_num_procs*k*recv_size]), local_num_procs*k*recv_size, MPI_DOUBLE, 
+
+
+            MPI_Irecv(&(data_temp[i*local_num_procs*k*recv_size]), local_num_procs*k*recv_size, MPI_DOUBLE,
                 (local_rank - k) >= 0 ? local_rank -k: local_rank -k + local_num_procs, 1234, MPI_COMM_LOCAL, &recv_request);
             MPI_Wait(&send_request,&status);
             MPI_Wait(&recv_request,&status);
@@ -437,13 +437,13 @@ void AlltoallVarSize(double *data, double *data_temp, int size, int recv_size){
             }
         }
     }
-    
+
     //global send.
     int nextsend = local_num_procs * local_rank + node; //calculate who to send to.
-    MPI_Isend(data, size, MPI_DOUBLE, nextsend, 1234, 
+    MPI_Isend(data, size, MPI_DOUBLE, nextsend, 1234,
             MPI_COMM_WORLD,&send_request);
-    
-    
+
+
     MPI_Irecv(data_temp, size, MPI_DOUBLE, nextsend, 1234, MPI_COMM_WORLD, &recv_request);
     MPI_Wait(&send_request,&status);
     MPI_Wait(&recv_request,&status);
@@ -452,11 +452,11 @@ void AlltoallVarSize(double *data, double *data_temp, int size, int recv_size){
     }
 
 
-    
-    
+
+
     //reverse and rotate data
     for(int i = 0; i < local_num_procs;i++){
-        
+
         int start = i*local_num_procs;
         int end = (1+i)*local_num_procs - 1;
         while (start < end)
@@ -472,11 +472,11 @@ void AlltoallVarSize(double *data, double *data_temp, int size, int recv_size){
             start++;
             end--;
         }
-        
-    }
-    
 
-    
+    }
+
+
+
     for(int i = 0; i < (node+1) * local_num_procs * recv_size;i++){
         double tmp = data[size-1];
         double tmp2;
@@ -487,8 +487,8 @@ void AlltoallVarSize(double *data, double *data_temp, int size, int recv_size){
         }
         data[size-1] = tmp;
     }
-    
-    
+
+
 
     //ROTATE UP PPN - LOCAL_RANK - 1
     for(int i = 0; i< (local_num_procs - local_rank-1)*recv_size;i++){
@@ -501,16 +501,16 @@ void AlltoallVarSize(double *data, double *data_temp, int size, int recv_size){
         }
         data[size-1] = tmp;
     }
-    
+
     //second local sends
     for(int k = 1; k <= localsends; k*=2){
         for(int i = 0; i < (size/recv_size)/k;i++){
             if((i % 2) == 0) continue;
-            MPI_Isend(&(data[i*k*recv_size]), k*recv_size, MPI_DOUBLE,  (local_rank - k) >= 0 ? local_rank -k: local_rank -k + local_num_procs, 1234, 
+            MPI_Isend(&(data[i*k*recv_size]), k*recv_size, MPI_DOUBLE,  (local_rank - k) >= 0 ? local_rank -k: local_rank -k + local_num_procs, 1234,
                 MPI_COMM_LOCAL,&send_request);
-    
-    
-            MPI_Irecv(&(data_temp[i*k*recv_size]), k*recv_size, MPI_DOUBLE, 
+
+
+            MPI_Irecv(&(data_temp[i*k*recv_size]), k*recv_size, MPI_DOUBLE,
                 (local_rank + k )% local_num_procs, 1234, MPI_COMM_LOCAL, &recv_request);
             MPI_Wait(&send_request,&status);
             MPI_Wait(&recv_request,&status);
@@ -520,7 +520,7 @@ void AlltoallVarSize(double *data, double *data_temp, int size, int recv_size){
         }
     }
 
-    
+
     //ROTATE UP BY LOCAL RANK
     for(int i = 0; i< local_rank * recv_size;i++){
         double tmp = data[0];
@@ -540,7 +540,7 @@ void AlltoallVarSize(double *data, double *data_temp, int size, int recv_size){
             data[(i*local_num_procs + j)*recv_size + k] = data[((local_num_procs-1 -i)*local_num_procs + j)*recv_size + k];
             data[((local_num_procs-1 -i)*local_num_procs + j)*recv_size + k] = tmp;
             }
-        }   
+        }
     }
     //TRANSPOSE (ARRAY[I*PPN+J] = ARRAY[J*PPN+1])
     for(int i = 0; i < local_num_procs;i++){
