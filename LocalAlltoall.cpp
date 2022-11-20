@@ -574,7 +574,7 @@ int main(int argc, char* argv[]){
     //    printf("algorithm,num_procs,num_doubles_per_proc,seconds\n");
 
     // outer loop to test many message sizes
-    for (int i = log2(num_procs); i < 15; ++i) {
+    for (int i = log2(num_procs); i < 20; ++i) {
         int num_doubles = pow(2, i);
         int chunk_size = num_doubles / num_procs;
 
@@ -596,10 +596,10 @@ int main(int argc, char* argv[]){
         initialize_data(check_data_send, num_doubles, rank);
 
         // correctness check
-        MPI_Alltoall(check_data_send, chunk_size, MPI_DOUBLE, check_data_recv, chunk_size, MPI_DOUBLE, MPI_COMM_WORLD);
-        AlltoallVarSize(data, data_temp, num_doubles, chunk_size);
-        for (int i = 0; i < num_doubles; ++i)
-            assert_doubles_approx_equal(check_data_recv[i], data[i], 1e-5);
+        //MPI_Alltoall(check_data_send, chunk_size, MPI_DOUBLE, check_data_recv, chunk_size, MPI_DOUBLE, MPI_COMM_WORLD);
+        //AlltoallVarSize(data, data_temp, num_doubles, chunk_size);
+        //for (int i = 0; i < num_doubles; ++i)
+        //    assert_doubles_approx_equal(check_data_recv[i], data[i], 1e-5);
 
         // warmup and barrier before timing local version
         AlltoallVarSize(data, data_temp, num_doubles, chunk_size);

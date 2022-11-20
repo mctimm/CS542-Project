@@ -1,3 +1,0 @@
-algorithm,num_procs,num_doubles_per_proc,seconds
-Alltoallsquare,64,64,0.000177717
-MPI_Alltoall,64,64,3.448e-05
