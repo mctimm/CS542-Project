@@ -10,6 +10,8 @@
 
 . env.sh
 srun --mpi=pmi2 hostname
-echo 'algorithm,num_procs,num_doubles_per_proc,seconds' > results_comm_4x4.csv
-srun -n 16 -N 4 ./build/LocalAlltoall_comm >> results_comm_4x4.csv
+echo 'algorithm,num_procs,num_doubles_per_proc,seconds' > results_4x4.csv
+srun -n 16 -N 4 ./build/LocalAlltoall >> results_4x4.csv
+srun -n 16 -N 4 ./build/LocalAlltoall_comm >> results_4x4.csv
+srun -n 16 -N 4 ./build/Alltoall >> results_4x4.csv
 
