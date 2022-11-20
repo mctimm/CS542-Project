@@ -7,9 +7,9 @@
 #include <cmath>
 
 // initialize_data gives all unique data.
-void initialize_data(double *data, int rank) {
-    for(int i = 0; i < 16;i++){
-        data[i] = 16*(rank) + i;
+void initialize_data(double *data, int size, int rank) {
+    for (int i = 0; i < size; ++i) {
+        data[i] = (double)rank + i;
     }
 }
 
@@ -44,7 +44,7 @@ int main(int argc, char* argv[]){
 
         double* check_data_send = new double[num_doubles];
         double* check_data_recv = new double[num_doubles];
-        initialize_data(check_data_send, rank);
+        initialize_data(check_data_send, num_doubles, rank);
 
         // warmup and barrier before timing library version
         MPI_Alltoall(check_data_send, chunk_size, MPI_DOUBLE, check_data_recv, chunk_size, MPI_DOUBLE, MPI_COMM_WORLD);
