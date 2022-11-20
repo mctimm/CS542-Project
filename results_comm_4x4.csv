@@ -1,0 +1,12 @@
+algorithm,num_procs,num_doubles_per_proc,seconds
+AlltoallVarSize_comm_only,16,16,0.000109581
+AlltoallVarSize_comm_only,16,32,9.97059e-05
+AlltoallVarSize_comm_only,16,64,9.91189e-05
+AlltoallVarSize_comm_only,16,128,9.80141e-05
+AlltoallVarSize_comm_only,16,256,0.00010257
+AlltoallVarSize_comm_only,16,512,0.000106096
+AlltoallVarSize_comm_only,16,1024,0.00011881
+AlltoallVarSize_comm_only,16,2048,0.000158182
+AlltoallVarSize_comm_only,16,4096,0.000192657
+AlltoallVarSize_comm_only,16,8192,0.000290072
+AlltoallVarSize_comm_only,16,16384,0.000417954
