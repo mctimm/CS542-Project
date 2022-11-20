@@ -5,7 +5,7 @@
 #SBATCH --ntasks 16
 #SBATCH --ntasks-per-node 4
 #SBATCH --mem 4G
-#SBATCH --time 00:10:00
+#SBATCH --time 00:15:00
 #SBATCH --job-name localAlltoall4x4
 
 . env.sh
