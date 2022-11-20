@@ -11,4 +11,5 @@ set(CMAKE_CXX_COMPILER ${MPI_CXX_COMPILER})
 message("Using mpi compiler wrapper ${MPI_CXX_COMPILER}.")
 
 add_executable(LocalAlltoall LocalAlltoall.cpp)
+add_executable(LocalAlltoall_comm LocalAlltoall_comm.cpp)
 add_executable(Alltoall Alltoall.cpp)
