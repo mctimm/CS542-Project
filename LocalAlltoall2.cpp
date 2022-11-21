@@ -79,9 +79,9 @@ void RSM_Alltoall(const double *sendbuf, int sendcount, double *recvbuf,
     fprintf(stderr, "-----------------------\n");
   }
   // rotate up by rank * ppn rows
-  int i_rot = (rank * ppn) % num_vals;
+  int i_rot = (rank * ppn) % num_ranks;
   for (int i = 0; i < num_ranks * sendcount; ++i) {
-    memcpy(sendbuf_tmp+i, sendbuf+i_rot, sendcount * sizeof(double));
+    memcpy(sendbuf_tmp + (i*sendcount), sendbuf + (i_rot*sendcount), sendcount * sizeof(double));
     i_rot = (i_rot + sendcount) % num_vals;
   }
 
@@ -137,9 +137,36 @@ void RSM_Alltoall(const double *sendbuf, int sendcount, double *recvbuf,
   MPI_Irecv(recvbuf, num_vals, MPI_DOUBLE, exchange_rank,  2, comm, &recv_request);
   MPI_Wait(&send_request, MPI_STATUS_IGNORE);
   MPI_Wait(&recv_request, MPI_STATUS_IGNORE);
-  memcpy(sendbuf_tmp, recvbuf, num_vals * sizeof(double));
+  if (rank == 1) {
+    debug_print_buffer(recvbuf, num_vals);
+    fprintf(stderr, "-----------------------\n");
+  }
+
+  // rotate up by (node+1)*ppn rows
+  // do rotation form recvbuf from last exchange into sendbuf_tmp
+  i_rot = ((my_node+1) * ppn) % num_ranks;
+  for (int i = 0; i < num_ranks * sendcount; ++i) {
+    memcpy(sendbuf_tmp + (i*sendcount), recvbuf + (i_rot*sendcount), sendcount * sizeof(double));
+    i_rot = (i_rot + sendcount) % num_vals;
+  }
   if (rank == 1) {
     debug_print_buffer(sendbuf_tmp, num_vals);
+    fprintf(stderr, "-----------------------\n");
+  }
+
+  // reverse within chunks of size ppn
+  // reverse fom sendbuf_tmp into recvbuf
+  int j_rev = ppn - 1;
+  for (int i = 0; i < ppn; ++i) {
+    double *recv_chunk_start = recvbuf + i*sendcount*ppn;
+    double *send_chunk_start = sendbuf_tmp + i*sendcount*ppn;
+    for (int j = 0; j < ppn; ++j) {
+      memcpy(recv_chunk_start + j*sendcount, send_chunk_start + j_rev*sendcount, sendcount * sizeof(double));
+      j_rev -= 1;
+    }
+  }
+  if (rank == 1) {
+    debug_print_buffer(recvbuf, num_vals);
     fprintf(stderr, "-----------------------\n");
   }
 
