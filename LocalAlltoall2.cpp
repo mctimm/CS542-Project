@@ -88,7 +88,7 @@ void RSM_Alltoall(const double *sendbuf, int sendcount, double *recvbuf,
   for (int i = ppn; i < num_ranks; i+=ppn) {
     for (int j = 0; j < ppn; ++j) {
       MPI_Isend(sendbuf_tmp + (i*sendcount + j*sendcount) , sendcount, MPI_DOUBLE, right_neighbor_shared, 0, comm_shared, &send_request);
-      MPI_Irecv(recvbuf + (i*sendcount + j*sendcount) , sendcount, MPI_DOUBLE, left_neighbor_shared, 0, comm_shared, &send_request);       // TODO working on this
+      MPI_Irecv(recvbuf + (i*sendcount + j*sendcount) , sendcount, MPI_DOUBLE, left_neighbor_shared, 0, comm_shared, &recv_request);       // TODO working on this
       MPI_Wait(&send_request, MPI_STATUS_IGNORE);
       MPI_Wait(&recv_request, MPI_STATUS_IGNORE);
     }
