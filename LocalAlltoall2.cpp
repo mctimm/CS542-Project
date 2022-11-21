@@ -51,10 +51,12 @@ void RSM_Alltoall(const double *sendbuf, int sendcount, double *recvbuf,
   MPI_Comm_size(comm, &num_ranks);
 
   int ppn;
+  int rank_shared;
   MPI_Comm comm_shared;
   MPI_Comm_split_type(comm, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL,
                       &comm_shared);
   MPI_Comm_size(comm_shared, &ppn);
+  MPI_Comm_rank(comm_shared, &rank_shared);
 
   if (rank == 0) {
     fprintf(stderr, "[DEBUG] rank: %d, num_ranks: %d, ppn: %d\n", rank,
@@ -65,16 +67,37 @@ void RSM_Alltoall(const double *sendbuf, int sendcount, double *recvbuf,
   double *sendbuf_tmp = new double[sendcount * num_ranks];
 
   // rotate up by rank * ppn rows
-  if (rank == 3)
-    debug_print_buffer(sendbuf, num_vals);
   int i_rot = (rank * ppn) % num_vals;
   for (int i = 0; i < num_ranks * sendcount; ++i) {
-    sendbuf_tmp[i] = sendbuf[i_rot];
-    i_rot = (i_rot + 1) % num_vals;
+    memcpy(sendbuf_tmp+i, sendbuf+i, sendcount * sizeof(double));
+    i_rot = (i_rot + sendcount) % num_vals;
   }
-  if (rank == 3)
+
+  // initialize recv buff
+  memcpy(recvbuf, sendbuf_tmp, num_vals * sizeof(double));
+
+  if (rank == 1) {
+    debug_print_buffer(sendbuf_tmp, num_vals);
+    puts("-----------------------");
+  }
+  // send every 1*ppn rows 1 process away, locally
+  MPI_Request send_request;
+  MPI_Request recv_request;
+  int right_neighbor_shared = (rank_shared + 1) % ppn;
+  int left_neighbor_shared = (rank_shared - 1) < 0 ? ppn - 1 : rank_shared - 1;
+  for (int i = ppn; i < num_ranks; i+=ppn) {
+    for (int j = 0; j < ppn; ++j) {
+      MPI_Isend(sendbuf_tmp + (i*sendcount + j*sendcount) , sendcount, MPI_DOUBLE, right_neighbor_shared, 0, comm_shared, &send_request);
+      MPI_Irecv(recvbuf + (i*sendcount + j*sendcount) , sendcount, MPI_DOUBLE, left_neighbor_shared, 0, comm_shared, &send_request);       // TODO working on this
+      MPI_Wait(&send_request, MPI_STATUS_IGNORE);
+      MPI_Wait(&recv_request, MPI_STATUS_IGNORE);
+    }
+  }
+  if (rank == 1)
     debug_print_buffer(sendbuf_tmp, num_vals);
 
+  // clean up
+  delete[] sendbuf_tmp;
 }
 
 // main for testing and debugging
