@@ -156,8 +156,8 @@ void RSM_Alltoall(const double *sendbuf, int sendcount, double *recvbuf,
 
   // reverse within chunks of size ppn
   // reverse fom sendbuf_tmp into recvbuf
-  int j_rev = ppn - 1;
   for (int i = 0; i < ppn; ++i) {
+    int j_rev = ppn - 1;
     double *recv_chunk_start = recvbuf + i*sendcount*ppn;
     double *send_chunk_start = sendbuf_tmp + i*sendcount*ppn;
     for (int j = 0; j < ppn; ++j) {
