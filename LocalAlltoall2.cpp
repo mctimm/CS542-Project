@@ -46,6 +46,7 @@ void debug_print_buffer(const double *buff, int size) {
 // - data assumed to be double
 // - send and recv count are the same
 // - assumes number of ranks == number of processes per rank
+// - 4x4 only
 //
 // void RSM_Alltoall(const void *sendbuf, int sendcount, MPI_Datatype sendtype,
 //                   void *recvbuf, int recvcount, MPI_Datatype recvtype,
@@ -98,17 +99,30 @@ void RSM_Alltoall(const double *sendbuf, int sendcount, double *recvbuf,
   int left_neighbor_shared = (rank_shared - 1) < 0 ? ppn - 1 : rank_shared - 1;
   for (int i = ppn; i < num_ranks; i += 2*ppn) {
     MPI_Isend(sendbuf_tmp + i*sendcount , ppn*sendcount, MPI_DOUBLE, right_neighbor_shared, 0, comm_shared, &send_request);
-    MPI_Irecv(recvbuf + i*sendcount, ppn*sendcount, MPI_DOUBLE, left_neighbor_shared, 0, comm_shared, &recv_request);       // TODO working on this
+    MPI_Irecv(recvbuf + i*sendcount, ppn*sendcount, MPI_DOUBLE, left_neighbor_shared, 0, comm_shared, &recv_request);
     MPI_Wait(&send_request, MPI_STATUS_IGNORE);
     MPI_Wait(&recv_request, MPI_STATUS_IGNORE);
   }
+  memcpy(sendbuf_tmp, recvbuf, num_vals * sizeof(double));
   if (rank == 1) {
-    debug_print_buffer(recvbuf, num_vals);
+    debug_print_buffer(sendbuf_tmp, num_vals);
     fprintf(stderr, "-----------------------\n");
   }
 
-
   // send every 2*ppn rows 2 processes away
+  int right_two_shared = (rank_shared + 2) % ppn;
+  int left_two_shared = (rank_shared + ppn - 2) % ppn;
+  for (int i = 2*ppn; i < num_ranks; i += 2*2*ppn) {
+    MPI_Isend(sendbuf_tmp + i*sendcount , 2*ppn*sendcount, MPI_DOUBLE, right_two_shared, 1, comm_shared, &send_request);
+    MPI_Irecv(recvbuf + i*sendcount, 2*ppn*sendcount, MPI_DOUBLE, left_two_shared, 1, comm_shared, &recv_request);
+    MPI_Wait(&send_request, MPI_STATUS_IGNORE);
+    MPI_Wait(&recv_request, MPI_STATUS_IGNORE);
+  }
+  memcpy(sendbuf_tmp, recvbuf, num_vals * sizeof(double));
+  if (rank == 1) {
+    debug_print_buffer(sendbuf_tmp, num_vals);
+    fprintf(stderr, "-----------------------\n");
+  }
 
 
   // clean up
