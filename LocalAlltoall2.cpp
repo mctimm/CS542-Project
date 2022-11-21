@@ -170,6 +170,18 @@ void RSM_Alltoall(const double *sendbuf, int sendcount, double *recvbuf,
     fprintf(stderr, "-----------------------\n");
   }
 
+  // rotate up ppn-rank_shared-1
+  // do rotation form recvbuf into sendbuf_tmp
+  i_rot = (ppn-rank_shared-1) % num_ranks;
+  for (int i = 0; i < num_ranks * sendcount; ++i) {
+    memcpy(sendbuf_tmp + (i*sendcount), recvbuf + (i_rot*sendcount), sendcount * sizeof(double));
+    i_rot = (i_rot + sendcount) % num_vals;
+  }
+  if (rank == 1) {
+    debug_print_buffer(sendbuf_tmp, num_vals);
+    fprintf(stderr, "-----------------------\n");
+  }
+
   // clean up
   delete[] sendbuf_tmp;
 }
