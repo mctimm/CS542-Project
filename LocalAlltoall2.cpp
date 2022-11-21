@@ -182,6 +182,23 @@ void RSM_Alltoall(const double *sendbuf, int sendcount, double *recvbuf,
     fprintf(stderr, "-----------------------\n");
   }
 
+  // prep recv buff since new data
+  memcpy(recvbuf, sendbuf_tmp, num_vals * sizeof(double));
+
+  // send groups of 1 row left 1 proc, locally
+  for (int i = 1; i < num_ranks; i += 2) {
+    MPI_Isend(sendbuf_tmp + i*sendcount , sendcount, MPI_DOUBLE, left_neighbor_shared, 3, comm_shared, &send_request);
+    MPI_Irecv(recvbuf + i*sendcount, sendcount, MPI_DOUBLE, right_neighbor_shared, 3, comm_shared, &recv_request);
+    MPI_Wait(&send_request, MPI_STATUS_IGNORE);
+    MPI_Wait(&recv_request, MPI_STATUS_IGNORE);
+  }
+  memcpy(sendbuf_tmp, recvbuf, num_vals * sizeof(double));
+  if (rank == 1) {
+    fprintf(stderr, "left_neigh: %d, right_neigh: %d, sendcount: %d\n", left_neighbor_shared, right_neighbor_shared, sendcount);
+    debug_print_buffer(sendbuf_tmp, num_vals);
+    fprintf(stderr, "-----------------------\n");
+  }
+
   // clean up
   delete[] sendbuf_tmp;
 }
