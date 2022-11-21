@@ -67,7 +67,7 @@ void RSM_Alltoall(const double *sendbuf, int sendcount, double *recvbuf,
   // rotate up by rank * ppn rows
   if (rank == 3)
     debug_print_buffer(sendbuf, num_vals);
-  int i_rot = rank * ppn;
+  int i_rot = (rank * ppn) % num_vals;
   for (int i = 0; i < num_ranks * sendcount; ++i) {
     sendbuf_tmp[i] = sendbuf[i_rot];
     i_rot = (i_rot + 1) % num_vals;
