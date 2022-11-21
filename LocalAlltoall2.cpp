@@ -8,9 +8,16 @@
 #include <time.h>
 
 // initialize_data gives all unique data.
+//void initialize_data(double *data, int size, int rank) {
+//  for (int i = 0; i < size; ++i) {
+//    data[i] = (double)rank + i;
+//  }
+//}
+
+// this one is only for 4x4 to match spreadsheet!
 void initialize_data(double *data, int size, int rank) {
-  for (int i = 0; i < size; ++i) {
-    data[i] = (double)rank + i;
+  for(int i = 0; i < 16;i++){
+    data[i] = 16*(rank) + i;
   }
 }
 
@@ -30,7 +37,7 @@ void assert_doubles_approx_equal(double want, double got, double tolerance) {
 
 void debug_print_buffer(const double *buff, int size) {
   for (int i = 0; i < size; ++i) {
-    fprintf(stderr, "[DEBUG] buffer[%d]=%f\n", i, buff[i]);
+    fprintf(stderr, "[DEBUG] buffer[%d]=%02x\n", i, (int)buff[i]);
   }
 }
 
@@ -66,10 +73,14 @@ void RSM_Alltoall(const double *sendbuf, int sendcount, double *recvbuf,
   int num_vals = num_ranks * sendcount;
   double *sendbuf_tmp = new double[sendcount * num_ranks];
 
+  if (rank == 1) {
+    debug_print_buffer(sendbuf, num_vals);
+    fprintf(stderr, "-----------------------\n");
+  }
   // rotate up by rank * ppn rows
   int i_rot = (rank * ppn) % num_vals;
   for (int i = 0; i < num_ranks * sendcount; ++i) {
-    memcpy(sendbuf_tmp+i, sendbuf+i, sendcount * sizeof(double));
+    memcpy(sendbuf_tmp+i, sendbuf+i_rot, sendcount * sizeof(double));
     i_rot = (i_rot + sendcount) % num_vals;
   }
 
@@ -78,23 +89,27 @@ void RSM_Alltoall(const double *sendbuf, int sendcount, double *recvbuf,
 
   if (rank == 1) {
     debug_print_buffer(sendbuf_tmp, num_vals);
-    puts("-----------------------");
+    fprintf(stderr, "-----------------------\n");
   }
   // send every 1*ppn rows 1 process away, locally
   MPI_Request send_request;
   MPI_Request recv_request;
   int right_neighbor_shared = (rank_shared + 1) % ppn;
   int left_neighbor_shared = (rank_shared - 1) < 0 ? ppn - 1 : rank_shared - 1;
-  for (int i = ppn; i < num_ranks; i+=ppn) {
-    for (int j = 0; j < ppn; ++j) {
-      MPI_Isend(sendbuf_tmp + (i*sendcount + j*sendcount) , sendcount, MPI_DOUBLE, right_neighbor_shared, 0, comm_shared, &send_request);
-      MPI_Irecv(recvbuf + (i*sendcount + j*sendcount) , sendcount, MPI_DOUBLE, left_neighbor_shared, 0, comm_shared, &recv_request);       // TODO working on this
-      MPI_Wait(&send_request, MPI_STATUS_IGNORE);
-      MPI_Wait(&recv_request, MPI_STATUS_IGNORE);
-    }
+  for (int i = ppn; i < num_ranks; i += 2*ppn) {
+    MPI_Isend(sendbuf_tmp + i*sendcount , ppn*sendcount, MPI_DOUBLE, right_neighbor_shared, 0, comm_shared, &send_request);
+    MPI_Irecv(recvbuf + i*sendcount, ppn*sendcount, MPI_DOUBLE, left_neighbor_shared, 0, comm_shared, &recv_request);       // TODO working on this
+    MPI_Wait(&send_request, MPI_STATUS_IGNORE);
+    MPI_Wait(&recv_request, MPI_STATUS_IGNORE);
   }
-  if (rank == 1)
-    debug_print_buffer(sendbuf_tmp, num_vals);
+  if (rank == 1) {
+    debug_print_buffer(recvbuf, num_vals);
+    fprintf(stderr, "-----------------------\n");
+  }
+
+
+  // send every 2*ppn rows 2 processes away
+
 
   // clean up
   delete[] sendbuf_tmp;
