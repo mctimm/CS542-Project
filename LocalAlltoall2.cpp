@@ -124,6 +124,24 @@ void RSM_Alltoall(const double *sendbuf, int sendcount, double *recvbuf,
     fprintf(stderr, "-----------------------\n");
   }
 
+  // create a lookup table for rank (col) on node (row)
+  // rank r on node n will be node_rank_table[n*ppn + r]
+  int *node_rank_table = new int[num_ranks];
+  for (int i = 0; i < num_ranks; ++i)
+    node_rank_table[i] = i;
+
+  // rank r on node n exchanges data with rank n node r
+  int my_node = rank / ppn;
+  int exchange_rank = node_rank_table[rank_shared*ppn + my_node];
+  MPI_Isend(sendbuf_tmp, num_vals, MPI_DOUBLE, exchange_rank, 2, comm, &send_request);
+  MPI_Irecv(recvbuf, num_vals, MPI_DOUBLE, exchange_rank,  2, comm, &recv_request);
+  MPI_Wait(&send_request, MPI_STATUS_IGNORE);
+  MPI_Wait(&recv_request, MPI_STATUS_IGNORE);
+  memcpy(sendbuf_tmp, recvbuf, num_vals * sizeof(double));
+  if (rank == 1) {
+    debug_print_buffer(sendbuf_tmp, num_vals);
+    fprintf(stderr, "-----------------------\n");
+  }
 
   // clean up
   delete[] sendbuf_tmp;
