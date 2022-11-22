@@ -272,7 +272,7 @@ int main(int argc, char *argv[]) {
     if (rank == 0) {
       end = get_time();
       // append time
-      printf("%s,%d,%d,%g\n", "RSM_Alltoall", num_procs, num_doubles,
+      printf("%s,%d,%d,%g\n", "AlltoallNoShiftBuffered", num_procs, num_doubles,
           (end - start) / num_measurements); // csv row
     }
 
