@@ -100,8 +100,12 @@ void RSM_Alltoall(const double *sendbuf, int sendcount, double *recvbuf,
   const int left_two_shared = (rank_shared + ppn - 2) % ppn; // left(x) === right(total-x)
   const int my_node = rank / ppn;
   double *tmpbuf = new double[num_vals];
+  double *packbuf = new double[num_vals];
+  double *unpackbuf = new double[num_vals];
   MPI_Request send_request;
   MPI_Request recv_request;
+  int pack_position = 0;
+  int unpack_position = 0;
 
   if (DEBUG && rank == DEBUG_RANK) {
     debug_print_buffer(sendbuf, num_vals);
@@ -122,11 +126,30 @@ void RSM_Alltoall(const double *sendbuf, int sendcount, double *recvbuf,
   memcpy(recvbuf, tmpbuf, num_vals * sizeof(double));
 
   // send every 1*ppn rows 1 process away, locally
+  // for (int i = ppn; i < num_ranks; i += 2*ppn) {
+  //   MPI_Isend(tmpbuf + i*sendcount , ppn*sendcount, MPI_DOUBLE, right_neighbor_shared, 0, comm_shared, &send_request);
+  //   MPI_Irecv(recvbuf + i*sendcount, ppn*sendcount, MPI_DOUBLE, left_neighbor_shared, 0, comm_shared, &recv_request);
+  //   MPI_Wait(&send_request, MPI_STATUS_IGNORE);
+  //   MPI_Wait(&recv_request, MPI_STATUS_IGNORE);
+  // }
+  // memcpy(tmpbuf, recvbuf, num_vals * sizeof(double));
+  // if (DEBUG && rank == DEBUG_RANK) {
+  //   debug_print_buffer(tmpbuf, num_vals);
+  //   fprintf(stderr, "-----------------------\n");
+  // }
+
+  // pack
   for (int i = ppn; i < num_ranks; i += 2*ppn) {
-    MPI_Isend(tmpbuf + i*sendcount , ppn*sendcount, MPI_DOUBLE, right_neighbor_shared, 0, comm_shared, &send_request);
-    MPI_Irecv(recvbuf + i*sendcount, ppn*sendcount, MPI_DOUBLE, left_neighbor_shared, 0, comm_shared, &recv_request);
-    MPI_Wait(&send_request, MPI_STATUS_IGNORE);
-    MPI_Wait(&recv_request, MPI_STATUS_IGNORE);
+    MPI_Pack(tmpbuf + i*sendcount , ppn*sendcount, MPI_DOUBLE, packbuf, ppn*sendcount, &pack_position, comm_shared);
+  }
+  // send and recv
+  MPI_Isend(packbuf, pack_position, MPI_PACKED, right_neighbor_shared, 0, comm_shared, &send_request);
+  MPI_Irecv(unpackbuf, pack_position, MPI_PACKED, left_neighbor_shared, 0, comm_shared, &recv_request);
+  MPI_Wait(&send_request, MPI_STATUS_IGNORE);
+  MPI_Wait(&recv_request, MPI_STATUS_IGNORE);
+  // unpack
+  for (int i = ppn; i < num_ranks; i += 2*ppn) {
+    MPI_Unpack(unpackbuf, pack_position, &unpack_position, recvbuf + i*sendcount, ppn*sendcount, MPI_DOUBLE, comm_shared);
   }
   memcpy(tmpbuf, recvbuf, num_vals * sizeof(double));
   if (DEBUG && rank == DEBUG_RANK) {
@@ -273,7 +296,9 @@ void RSM_Alltoall(const double *sendbuf, int sendcount, double *recvbuf,
   // clean up
   delete[] tmpbuf;
   delete[] node_rank_table;
-  
+  delete[] packbuf;
+  delete[] unpackbuf;
+
   // make sure all ranks fill return buffer before returning
   // MPI_Barrier(comm); // TODO I don't know if this is needed...
 }
