@@ -218,15 +218,27 @@ void RSM_Alltoall(const double *sendbuf, int sendcount, double *recvbuf,
   // = (0 + num_ranks - rank_shared) % num_ranks
   // rotate from recvbuf to sendbuf_tmp
   i_rot = (num_ranks - rank_shared) % num_ranks;
-  if (DEBUG && rank == 1) {
-    fprintf(stderr, "[DEBUG] %d left of %d is %d. total=%d.\n", rank_shared, 0, i_rot, num_ranks);
-  }
   for (int i = 0; i < num_ranks * sendcount; ++i) {
     memcpy(sendbuf_tmp + (i*sendcount), recvbuf + (i_rot*sendcount), sendcount * sizeof(double));
     i_rot = (i_rot + 1) % num_ranks;
   }
   if (DEBUG && rank == 1) {
     debug_print_buffer(sendbuf_tmp, num_vals);
+    fprintf(stderr, "-----------------------\n");
+  }
+
+  // reverse among groups (not within)
+  // i.e. reverse by chunks of size ppn
+  // reverse from sendbuf_tmp into recvbuf
+  int j_rev = ppn - 1;
+  for (int i = 0; i < ppn; ++i) {
+    double *recv_chunk_start = recvbuf + i*sendcount*ppn;
+    double *send_chunk_start = sendbuf_tmp + j_rev*sendcount*ppn;
+    memcpy(recv_chunk_start, send_chunk_start, sendcount*ppn*sizeof(double));
+    j_rev -= 1;
+  }
+  if (DEBUG && rank == 1) {
+    debug_print_buffer(recvbuf, num_vals);
     fprintf(stderr, "-----------------------\n");
   }
 
