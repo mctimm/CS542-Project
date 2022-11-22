@@ -7,7 +7,8 @@
 #include <sys/time.h>
 #include <time.h>
 
-#define DEBUG 1
+#define DEBUG 0
+#define DEBUG_RANK 1
 
 // initialize_data gives all unique data.
 //void initialize_data(double *data, int size, int rank) {
@@ -31,15 +32,23 @@ double get_time(void) {
 }
 
 void assert_doubles_approx_equal(double want, double got, double tolerance) {
+  int rank;
+  int num_ranks;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &num_ranks);
   if (abs(want - got) > tolerance) {
-    fprintf(stderr, "[ERROR] assert double: want %g, got %g\n", want, got);
+    fprintf(stderr, "[ERROR] on rank %d/%d, assert double: want %g, got %g\n", rank, num_ranks, want, got);
   }
   assert(abs(want - got) <= tolerance);
 }
 
 void debug_print_buffer(const double *buff, int size) {
+  int rank;
+  int num_ranks;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &num_ranks);
   for (int i = 0; i < size; ++i) {
-    fprintf(stderr, "[DEBUG] buffer[%d]=%02x\n", i, (int)buff[i]);
+    fprintf(stderr, "[DEBUG] on rank %d/%d, buffer[%d]=%02x\n", rank, num_ranks, i, (int)buff[i]);
   }
 }
 
@@ -68,7 +77,7 @@ void RSM_Alltoall(const double *sendbuf, int sendcount, double *recvbuf,
   MPI_Comm_size(comm_shared, &ppn);
   MPI_Comm_rank(comm_shared, &rank_shared);
 
-  if (rank == 0) {
+  if (DEBUG && rank == DEBUG_RANK) {
     fprintf(stderr, "[DEBUG] rank: %d, num_ranks: %d, ppn: %d\n", rank,
             num_ranks, ppn);
   }
@@ -84,7 +93,7 @@ void RSM_Alltoall(const double *sendbuf, int sendcount, double *recvbuf,
   MPI_Request send_request;
   MPI_Request recv_request;
 
-  if (rank == 1) {
+  if (DEBUG && rank == DEBUG_RANK) {
     debug_print_buffer(sendbuf, num_vals);
     fprintf(stderr, "-----------------------\n");
   }
@@ -98,7 +107,7 @@ void RSM_Alltoall(const double *sendbuf, int sendcount, double *recvbuf,
   // initialize recv buff
   memcpy(recvbuf, sendbuf_tmp, num_vals * sizeof(double));
 
-  if (DEBUG && rank == 1) {
+  if (DEBUG && rank == DEBUG_RANK) {
     debug_print_buffer(sendbuf_tmp, num_vals);
     fprintf(stderr, "-----------------------\n");
   }
@@ -110,7 +119,7 @@ void RSM_Alltoall(const double *sendbuf, int sendcount, double *recvbuf,
     MPI_Wait(&recv_request, MPI_STATUS_IGNORE);
   }
   memcpy(sendbuf_tmp, recvbuf, num_vals * sizeof(double));
-  if (DEBUG && rank == 1) {
+  if (DEBUG && rank == DEBUG_RANK) {
     debug_print_buffer(sendbuf_tmp, num_vals);
     fprintf(stderr, "-----------------------\n");
   }
@@ -123,7 +132,7 @@ void RSM_Alltoall(const double *sendbuf, int sendcount, double *recvbuf,
     MPI_Wait(&recv_request, MPI_STATUS_IGNORE);
   }
   memcpy(sendbuf_tmp, recvbuf, num_vals * sizeof(double));
-  if (DEBUG && rank == 1) {
+  if (DEBUG && rank == DEBUG_RANK) {
     debug_print_buffer(sendbuf_tmp, num_vals);
     fprintf(stderr, "-----------------------\n");
   }
@@ -140,7 +149,7 @@ void RSM_Alltoall(const double *sendbuf, int sendcount, double *recvbuf,
   MPI_Irecv(recvbuf, num_vals, MPI_DOUBLE, exchange_rank,  2, comm, &recv_request);
   MPI_Wait(&send_request, MPI_STATUS_IGNORE);
   MPI_Wait(&recv_request, MPI_STATUS_IGNORE);
-  if (DEBUG && rank == 1) {
+  if (DEBUG && rank == DEBUG_RANK) {
     debug_print_buffer(recvbuf, num_vals);
     fprintf(stderr, "-----------------------\n");
   }
@@ -152,7 +161,7 @@ void RSM_Alltoall(const double *sendbuf, int sendcount, double *recvbuf,
     memcpy(sendbuf_tmp + (i*sendcount), recvbuf + (i_rot*sendcount), sendcount * sizeof(double));
     i_rot = (i_rot + sendcount) % num_ranks;
   }
-  if (DEBUG && rank == 1) {
+  if (DEBUG && rank == DEBUG_RANK) {
     debug_print_buffer(sendbuf_tmp, num_vals);
     fprintf(stderr, "-----------------------\n");
   }
@@ -168,7 +177,7 @@ void RSM_Alltoall(const double *sendbuf, int sendcount, double *recvbuf,
       j_rev -= 1;
     }
   }
-  if (DEBUG && rank == 1) {
+  if (DEBUG && rank == DEBUG_RANK) {
     debug_print_buffer(recvbuf, num_vals);
     fprintf(stderr, "-----------------------\n");
   }
@@ -176,11 +185,14 @@ void RSM_Alltoall(const double *sendbuf, int sendcount, double *recvbuf,
   // rotate up ppn-rank_shared-1
   // do rotation form recvbuf into sendbuf_tmp
   i_rot = (ppn-rank_shared-1) % num_ranks;
+  if (DEBUG && rank == DEBUG_RANK) {
+    fprintf(stderr, "rotate up ppn-rank_shared-1\n");
+  }
   for (int i = 0; i < num_ranks * sendcount; ++i) {
     memcpy(sendbuf_tmp + (i*sendcount), recvbuf + (i_rot*sendcount), sendcount * sizeof(double));
     i_rot = (i_rot + sendcount) % num_ranks;
   }
-  if (DEBUG && rank == 1) {
+  if (DEBUG && rank == DEBUG_RANK) {
     debug_print_buffer(sendbuf_tmp, num_vals);
     fprintf(stderr, "-----------------------\n");
   }
@@ -196,7 +208,7 @@ void RSM_Alltoall(const double *sendbuf, int sendcount, double *recvbuf,
     MPI_Wait(&recv_request, MPI_STATUS_IGNORE);
   }
   memcpy(sendbuf_tmp, recvbuf, num_vals * sizeof(double));
-  if (DEBUG && rank == 1) {
+  if (DEBUG && rank == DEBUG_RANK) {
     debug_print_buffer(sendbuf_tmp, num_vals);
     fprintf(stderr, "-----------------------\n");
   }
@@ -208,7 +220,7 @@ void RSM_Alltoall(const double *sendbuf, int sendcount, double *recvbuf,
     MPI_Wait(&send_request, MPI_STATUS_IGNORE);
     MPI_Wait(&recv_request, MPI_STATUS_IGNORE);
   }
-  if (DEBUG && rank == 1) {
+  if (DEBUG && rank == DEBUG_RANK) {
     debug_print_buffer(recvbuf, num_vals);
     fprintf(stderr, "-----------------------\n");
   }
@@ -222,7 +234,7 @@ void RSM_Alltoall(const double *sendbuf, int sendcount, double *recvbuf,
     memcpy(sendbuf_tmp + (i*sendcount), recvbuf + (i_rot*sendcount), sendcount * sizeof(double));
     i_rot = (i_rot + 1) % num_ranks;
   }
-  if (DEBUG && rank == 1) {
+  if (DEBUG && rank == DEBUG_RANK) {
     debug_print_buffer(sendbuf_tmp, num_vals);
     fprintf(stderr, "-----------------------\n");
   }
@@ -238,7 +250,7 @@ void RSM_Alltoall(const double *sendbuf, int sendcount, double *recvbuf,
     j_rev -= 1;
   }
   memcpy(sendbuf_tmp, recvbuf, num_vals * sizeof(double));
-  if (DEBUG && rank == 1) {
+  if (DEBUG && rank == DEBUG_RANK) {
     debug_print_buffer(sendbuf_tmp, num_vals);
     fprintf(stderr, "-----------------------\n");
   }
@@ -250,13 +262,16 @@ void RSM_Alltoall(const double *sendbuf, int sendcount, double *recvbuf,
       memcpy(recvbuf + (i*sendcount*ppn + j*sendcount), sendbuf_tmp + (j*sendcount*ppn + i), sendcount*sizeof(double));
     }
   }
-  if (DEBUG && rank == 1) {
+  if (DEBUG && rank == DEBUG_RANK) {
     debug_print_buffer(recvbuf, num_vals);
     fprintf(stderr, "-----------------------\n");
   }
 
   // clean up
   delete[] sendbuf_tmp;
+  
+  // make sure all ranks fill return buffer before returning
+  MPI_Barrier(comm);
 }
 
 // main for testing and debugging
@@ -280,58 +295,57 @@ int main(int argc, char *argv[]) {
     if (num_doubles % num_procs != 0)
       continue;
 
-    if (DEBUG && rank == 0) {
+    if (DEBUG && rank == DEBUG_RANK) {
       fprintf(stderr, "[DEBUG] num_doubles=%d\n", num_doubles);
       fprintf(stderr, "[DEBUG] chunk_size=%d\n", chunk_size);
       fprintf(stderr, "[DEBUG] num_procs=%d\n", num_procs);
     }
 
-    double *data = new double[num_doubles];
-    double *data_temp = new double[num_doubles];
+    double *data_send = new double[num_doubles];
+    double *data_recv = new double[num_doubles];
     double *check_data_send = new double[num_doubles];
     double *check_data_recv = new double[num_doubles];
-    initialize_data(data, num_doubles, rank);
+    initialize_data(data_send, num_doubles, rank);
     initialize_data(check_data_send, num_doubles, rank);
 
     // correctness check
     MPI_Alltoall(check_data_send, chunk_size, MPI_DOUBLE, check_data_recv,
-                 chunk_size, MPI_DOUBLE, MPI_COMM_WORLD);
-    RSM_Alltoall(check_data_send, chunk_size, check_data_recv, MPI_COMM_WORLD);
+        chunk_size, MPI_DOUBLE, MPI_COMM_WORLD);
+    RSM_Alltoall(data_send, chunk_size, data_recv, MPI_COMM_WORLD);
 
-    // for (int i = 0; i < num_doubles; ++i)
-    //    assert_doubles_approx_equal(check_data_recv[i], data[i], 1e-5);
+    for (int i = 0; i < num_doubles; ++i)
+      assert_doubles_approx_equal(check_data_recv[i], data_recv[i], 1e-5);
 
-    // // warmup and barrier before timing local version
-    // RSM_Alltoall(check_data_send, chunk_size, MPI_DOUBLE, check_data_recv,
-    // chunk_size, MPI_DOUBLE, MPI_COMM_WORLD); MPI_Barrier(MPI_COMM_WORLD);
+    // warmup and barrier before timing local version
+    RSM_Alltoall(data_send, chunk_size, data_recv, MPI_COMM_WORLD);
+    MPI_Barrier(MPI_COMM_WORLD);
 
-    // // start timer
-    // double start = 0;
-    // double end = 0;
-    // if (rank == 0)
-    //     start = get_time();
+    // start timer
+    double start = 0;
+    double end = 0;
+    if (rank == 0)
+      start = get_time();
 
-    // // alltoall many times
-    // for (int i = 0; i < num_measurements; ++i) {
-    //     RSM_Alltoall(check_data_send, chunk_size, MPI_DOUBLE,
-    //     check_data_recv, chunk_size, MPI_DOUBLE, MPI_COMM_WORLD);
-    // }
+    // alltoall many times
+    for (int i = 0; i < num_measurements; ++i) {
+        RSM_Alltoall(data_send, chunk_size, data_recv, MPI_COMM_WORLD);
+    }
 
-    // // stop timer and print result
-    // if (rank == 0) {
-    //     end = get_time();
-    //     // append time
-    //     printf("%s,%d,%d,%g\n", "AlltoallVarSize", num_procs, num_doubles,
-    //     (end - start) / num_measurements); // csv row
-    // }
+    // stop timer and print result
+    if (rank == 0) {
+      end = get_time();
+      // append time
+      printf("%s,%d,%d,%g\n", "AlltoallVarSize", num_procs, num_doubles,
+          (end - start) / num_measurements); // csv row
+    }
 
-    // // That's all folks!
-    delete[] data;
-    delete[] data_temp;
+    // That's all folks!
+    delete[] data_send;
+    delete[] data_recv;
     delete[] check_data_send;
     delete[] check_data_recv;
 
-    break; // TODO remove
+    break;
   }
 
   MPI_Finalize();
