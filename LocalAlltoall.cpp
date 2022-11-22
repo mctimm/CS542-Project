@@ -700,6 +700,7 @@ void AlltoallNoShiftBuffered(double *data,int partition, double *data_temp, int 
             }
         }
     }
+    free(sendBuffer);
 }
 
 
