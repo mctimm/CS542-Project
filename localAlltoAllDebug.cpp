@@ -725,14 +725,14 @@ void AlltoallNoShiftBuffered(double *data,int partition, double *data_temp, int 
     int startingIndex = local_rank*local_num_procs*recv_size % size;
     //local sends
     int sendsize = size/2;
-    double sendBuffer = new double[sendsize];
+    double* sendBuffer = new double[sendsize];
     MPI_Request send_request, recv_request;
     for(int k = 1; k <= localsends; k*=2){ 
         int count = 0;
         for(int i = 0; i< local_num_procs/k;i++){
             if((i % 2) == 0) continue;
-            for(int j = 0; j < local_num_procs*k*recv_size){
-                sendBuffer[count++] = (data[(startingindex + i*local_num_procs*k*recv_size + j) % size])
+            for(int j = 0; j < local_num_procs*k*recv_size;j++){
+                sendBuffer[count++] = (data[(startingIndex + i*local_num_procs*k*recv_size + j) % size])
             }
             
         }
@@ -747,7 +747,7 @@ void AlltoallNoShiftBuffered(double *data,int partition, double *data_temp, int 
         count = 0;
         for(int i = 0; i< local_num_procs/k;i++){
             for(int j =0; j < local_num_procs*k*recv_size;j++){
-                data[(startingindex + i*local_num_procs*k*recv_size + j) % size] = data_temp[count++];
+                data[(startingIndex + i*local_num_procs*k*recv_size + j) % size] = data_temp[count++];
             }
         }
     }
