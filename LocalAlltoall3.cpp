@@ -251,7 +251,7 @@ int main(int argc, char *argv[]) {
     AlltoallNoShiftBuffered(data_send, 1, data_recv, num_doubles, chunk_size);
 
     for (int i = 0; i < num_doubles; ++i)
-        assert_doubles_approx_equal(check_data_send[i], data_send[i], 1e-5);
+        assert_doubles_approx_equal(check_data_recv[i], data_send[i], 1e-5);
 
     // warmup and barrier before timing local version
     AlltoallNoShiftBuffered(data_send, 1, data_recv, num_doubles, chunk_size);
