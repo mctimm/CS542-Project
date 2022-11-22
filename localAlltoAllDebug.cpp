@@ -732,7 +732,9 @@ void AlltoallNoShiftBuffered(double *data,int partition, double *data_temp, int 
         for(int i = 0; i< local_num_procs/k;i++){
             if((i % 2) == 0) continue;
             for(int j = 0; j < local_num_procs*k*recv_size;j++){
-                sendBuffer[count++] = (data[(startingIndex + i*local_num_procs*k*recv_size + j) % size])
+                sendBuffer[count++] = (data[(startingIndex + i*local_num_procs*k*recv_size + j) % size]);
+		if(rank == 0)
+			printf("%x\n",int(sendBuffer[count-1]));
             }
             
         }
@@ -746,6 +748,7 @@ void AlltoallNoShiftBuffered(double *data,int partition, double *data_temp, int 
         MPI_Wait(&recv_request,&status);
         count = 0;
         for(int i = 0; i< local_num_procs/k;i++){
+		 if(i %2 == 0) continue;
             for(int j =0; j < local_num_procs*k*recv_size;j++){
                 data[(startingIndex + i*local_num_procs*k*recv_size + j) % size] = data_temp[count++];
             }
@@ -758,6 +761,7 @@ void AlltoallNoShiftBuffered(double *data,int partition, double *data_temp, int 
     }
     //global send.
     int nextsend = local_num_procs * local_rank + node; //calculate who to send to.
+    startingIndex = node*local_num_procs*recv_size % size;
     MPI_Isend(data, size, MPI_DOUBLE, nextsend, 1234, 
             MPI_COMM_WORLD,&send_request);
     
@@ -815,6 +819,8 @@ void AlltoallNoShiftBuffered(double *data,int partition, double *data_temp, int 
             if((i % 2) == 0) continue;
             for(int j = 0; j < k*recv_size;j++){
                 sendBuffer[count++] = data[(startingIndex + i*k*recv_size + j) % size];
+		if(rank == 0)
+                        printf("%x\n",int(sendBuffer[count-1]));
             }
     
            
@@ -830,20 +836,32 @@ void AlltoallNoShiftBuffered(double *data,int partition, double *data_temp, int 
         MPI_Wait(&recv_request,&status);
         count = 0;
         for(int i = 0; i < (size/recv_size)/k;i++){
+		if(i %2 == 0) continue;
             for(int j = 0; j < k*recv_size; j++){
+		
                 data[(startingIndex + i*k*recv_size + j) % size] = data_temp[count++];
             }
+
+        }
+	if(rank == 0){
+        for(int i = 0; i < size;i++){
+            printf("secondSend process %d, data[%d] == %x\n",rank,i,int(data[i]));
         }
     }
-
+    }
+    if(rank == 0){
+        for(int i = 0; i < size;i++){
+            printf("secondSend process %d, data[%d] == %x\n",rank,i,int(data[i]));
+        }
+    }
     startingIndex = (startingIndex - local_rank*recv_size) > 0 ? (startingIndex - local_rank*recv_size) : (startingIndex - local_rank*recv_size) + size;
     
     //REVERSE AMONG GROUPS (NOT WITHIN)
     for(int i = 0; i < local_num_procs/2;i++){
         for(int j = 0; j < local_num_procs;j++){
             for(int k = 0; k < recv_size; k++){
-            data_temp[(i*local_num_procs + j)*recv_size + k] = data[((local_num_procs-1 -i)*local_num_procs + j)*recv_size + k + startingIndex];
-            data_temp[((local_num_procs-1 -i)*local_num_procs + j)*recv_size + k] = data[(i*local_num_procs+j)*recv_size + k + startingIndex];
+            data_temp[(i*local_num_procs + j)*recv_size + k] = data[(((local_num_procs-1 -i)*local_num_procs + j)*recv_size + k + startingIndex) % size];
+            data_temp[((local_num_procs-1 -i)*local_num_procs + j)*recv_size + k] = data[((i*local_num_procs+j)*recv_size + k + startingIndex) % size];
             }
         }   
     }
