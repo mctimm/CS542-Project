@@ -237,6 +237,19 @@ void RSM_Alltoall(const double *sendbuf, int sendcount, double *recvbuf,
     memcpy(recv_chunk_start, send_chunk_start, sendcount*ppn*sizeof(double));
     j_rev -= 1;
   }
+  memcpy(sendbuf_tmp, recvbuf, num_vals * sizeof(double));
+  if (DEBUG && rank == 1) {
+    debug_print_buffer(sendbuf_tmp, num_vals);
+    fprintf(stderr, "-----------------------\n");
+  }
+
+  // transpose (array[i*ppn+j] = array[j*ppn+1])
+  // transform from sendbuf_tmp into recvbuf (final answer and return param)
+  for (int i = 0; i < ppn; ++i) {
+    for (int j = 0; j < ppn; ++j) {
+      memcpy(recvbuf + (i*sendcount*ppn + j*sendcount), sendbuf_tmp + (j*sendcount*ppn + i), sendcount*sizeof(double));
+    }
+  }
   if (DEBUG && rank == 1) {
     debug_print_buffer(recvbuf, num_vals);
     fprintf(stderr, "-----------------------\n");
