@@ -78,7 +78,7 @@ void RSM_Alltoall(const double *sendbuf, int sendcount, double *recvbuf,
   const int right_neighbor_shared = (rank_shared + 1) % ppn;
   const int left_neighbor_shared = (rank_shared - 1) < 0 ? ppn - 1 : rank_shared - 1;
   const int right_two_shared = (rank_shared + 2) % ppn;
-  const int left_two_shared = (rank_shared + ppn - 2) % ppn;
+  const int left_two_shared = (rank_shared + ppn - 2) % ppn; // left(x) === right(total-x)
   const int my_node = rank / ppn;
   double *sendbuf_tmp = new double[sendcount * num_ranks];
   MPI_Request send_request;
@@ -92,7 +92,7 @@ void RSM_Alltoall(const double *sendbuf, int sendcount, double *recvbuf,
   int i_rot = (rank * ppn) % num_ranks;
   for (int i = 0; i < num_ranks * sendcount; ++i) {
     memcpy(sendbuf_tmp + (i*sendcount), sendbuf + (i_rot*sendcount), sendcount * sizeof(double));
-    i_rot = (i_rot + sendcount) % num_vals;
+    i_rot = (i_rot + sendcount) % num_ranks;
   }
 
   // initialize recv buff
@@ -150,7 +150,7 @@ void RSM_Alltoall(const double *sendbuf, int sendcount, double *recvbuf,
   i_rot = ((my_node+1) * ppn) % num_ranks;
   for (int i = 0; i < num_ranks * sendcount; ++i) {
     memcpy(sendbuf_tmp + (i*sendcount), recvbuf + (i_rot*sendcount), sendcount * sizeof(double));
-    i_rot = (i_rot + sendcount) % num_vals;
+    i_rot = (i_rot + sendcount) % num_ranks;
   }
   if (DEBUG && rank == 1) {
     debug_print_buffer(sendbuf_tmp, num_vals);
@@ -178,7 +178,7 @@ void RSM_Alltoall(const double *sendbuf, int sendcount, double *recvbuf,
   i_rot = (ppn-rank_shared-1) % num_ranks;
   for (int i = 0; i < num_ranks * sendcount; ++i) {
     memcpy(sendbuf_tmp + (i*sendcount), recvbuf + (i_rot*sendcount), sendcount * sizeof(double));
-    i_rot = (i_rot + sendcount) % num_vals;
+    i_rot = (i_rot + sendcount) % num_ranks;
   }
   if (DEBUG && rank == 1) {
     debug_print_buffer(sendbuf_tmp, num_vals);
@@ -208,7 +208,23 @@ void RSM_Alltoall(const double *sendbuf, int sendcount, double *recvbuf,
     MPI_Wait(&send_request, MPI_STATUS_IGNORE);
     MPI_Wait(&recv_request, MPI_STATUS_IGNORE);
   }
-  memcpy(sendbuf_tmp, recvbuf, num_vals * sizeof(double));
+  if (DEBUG && rank == 1) {
+    debug_print_buffer(recvbuf, num_vals);
+    fprintf(stderr, "-----------------------\n");
+  }
+
+  // rotate down (left) by local rank
+  // = 0 - rank_shared (w/ wrap around)
+  // = (0 + num_ranks - rank_shared) % num_ranks
+  // rotate from recvbuf to sendbuf_tmp
+  i_rot = (num_ranks - rank_shared) % num_ranks;
+  if (DEBUG && rank == 1) {
+    fprintf(stderr, "[DEBUG] %d left of %d is %d. total=%d.\n", rank_shared, 0, i_rot, num_ranks);
+  }
+  for (int i = 0; i < num_ranks * sendcount; ++i) {
+    memcpy(sendbuf_tmp + (i*sendcount), recvbuf + (i_rot*sendcount), sendcount * sizeof(double));
+    i_rot = (i_rot + 1) % num_ranks;
+  }
   if (DEBUG && rank == 1) {
     debug_print_buffer(sendbuf_tmp, num_vals);
     fprintf(stderr, "-----------------------\n");
