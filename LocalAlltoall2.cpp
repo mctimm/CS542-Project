@@ -7,6 +7,8 @@
 #include <sys/time.h>
 #include <time.h>
 
+#define DEBUG 1
+
 // initialize_data gives all unique data.
 //void initialize_data(double *data, int size, int rank) {
 //  for (int i = 0; i < size; ++i) {
@@ -71,8 +73,16 @@ void RSM_Alltoall(const double *sendbuf, int sendcount, double *recvbuf,
             num_ranks, ppn);
   }
 
-  int num_vals = num_ranks * sendcount;
+  // some values used multiple times
+  const int num_vals = num_ranks * sendcount;
+  const int right_neighbor_shared = (rank_shared + 1) % ppn;
+  const int left_neighbor_shared = (rank_shared - 1) < 0 ? ppn - 1 : rank_shared - 1;
+  const int right_two_shared = (rank_shared + 2) % ppn;
+  const int left_two_shared = (rank_shared + ppn - 2) % ppn;
+  const int my_node = rank / ppn;
   double *sendbuf_tmp = new double[sendcount * num_ranks];
+  MPI_Request send_request;
+  MPI_Request recv_request;
 
   if (rank == 1) {
     debug_print_buffer(sendbuf, num_vals);
@@ -88,15 +98,11 @@ void RSM_Alltoall(const double *sendbuf, int sendcount, double *recvbuf,
   // initialize recv buff
   memcpy(recvbuf, sendbuf_tmp, num_vals * sizeof(double));
 
-  if (rank == 1) {
+  if (DEBUG && rank == 1) {
     debug_print_buffer(sendbuf_tmp, num_vals);
     fprintf(stderr, "-----------------------\n");
   }
   // send every 1*ppn rows 1 process away, locally
-  MPI_Request send_request;
-  MPI_Request recv_request;
-  int right_neighbor_shared = (rank_shared + 1) % ppn;
-  int left_neighbor_shared = (rank_shared - 1) < 0 ? ppn - 1 : rank_shared - 1;
   for (int i = ppn; i < num_ranks; i += 2*ppn) {
     MPI_Isend(sendbuf_tmp + i*sendcount , ppn*sendcount, MPI_DOUBLE, right_neighbor_shared, 0, comm_shared, &send_request);
     MPI_Irecv(recvbuf + i*sendcount, ppn*sendcount, MPI_DOUBLE, left_neighbor_shared, 0, comm_shared, &recv_request);
@@ -104,14 +110,12 @@ void RSM_Alltoall(const double *sendbuf, int sendcount, double *recvbuf,
     MPI_Wait(&recv_request, MPI_STATUS_IGNORE);
   }
   memcpy(sendbuf_tmp, recvbuf, num_vals * sizeof(double));
-  if (rank == 1) {
+  if (DEBUG && rank == 1) {
     debug_print_buffer(sendbuf_tmp, num_vals);
     fprintf(stderr, "-----------------------\n");
   }
 
   // send every 2*ppn rows 2 processes away
-  int right_two_shared = (rank_shared + 2) % ppn;
-  int left_two_shared = (rank_shared + ppn - 2) % ppn;
   for (int i = 2*ppn; i < num_ranks; i += 2*2*ppn) {
     MPI_Isend(sendbuf_tmp + i*sendcount , 2*ppn*sendcount, MPI_DOUBLE, right_two_shared, 1, comm_shared, &send_request);
     MPI_Irecv(recvbuf + i*sendcount, 2*ppn*sendcount, MPI_DOUBLE, left_two_shared, 1, comm_shared, &recv_request);
@@ -119,7 +123,7 @@ void RSM_Alltoall(const double *sendbuf, int sendcount, double *recvbuf,
     MPI_Wait(&recv_request, MPI_STATUS_IGNORE);
   }
   memcpy(sendbuf_tmp, recvbuf, num_vals * sizeof(double));
-  if (rank == 1) {
+  if (DEBUG && rank == 1) {
     debug_print_buffer(sendbuf_tmp, num_vals);
     fprintf(stderr, "-----------------------\n");
   }
@@ -131,13 +135,12 @@ void RSM_Alltoall(const double *sendbuf, int sendcount, double *recvbuf,
     node_rank_table[i] = i;
 
   // rank r on node n exchanges data with rank n node r
-  int my_node = rank / ppn;
   int exchange_rank = node_rank_table[rank_shared*ppn + my_node];
   MPI_Isend(sendbuf_tmp, num_vals, MPI_DOUBLE, exchange_rank, 2, comm, &send_request);
   MPI_Irecv(recvbuf, num_vals, MPI_DOUBLE, exchange_rank,  2, comm, &recv_request);
   MPI_Wait(&send_request, MPI_STATUS_IGNORE);
   MPI_Wait(&recv_request, MPI_STATUS_IGNORE);
-  if (rank == 1) {
+  if (DEBUG && rank == 1) {
     debug_print_buffer(recvbuf, num_vals);
     fprintf(stderr, "-----------------------\n");
   }
@@ -149,7 +152,7 @@ void RSM_Alltoall(const double *sendbuf, int sendcount, double *recvbuf,
     memcpy(sendbuf_tmp + (i*sendcount), recvbuf + (i_rot*sendcount), sendcount * sizeof(double));
     i_rot = (i_rot + sendcount) % num_vals;
   }
-  if (rank == 1) {
+  if (DEBUG && rank == 1) {
     debug_print_buffer(sendbuf_tmp, num_vals);
     fprintf(stderr, "-----------------------\n");
   }
@@ -165,7 +168,7 @@ void RSM_Alltoall(const double *sendbuf, int sendcount, double *recvbuf,
       j_rev -= 1;
     }
   }
-  if (rank == 1) {
+  if (DEBUG && rank == 1) {
     debug_print_buffer(recvbuf, num_vals);
     fprintf(stderr, "-----------------------\n");
   }
@@ -177,7 +180,7 @@ void RSM_Alltoall(const double *sendbuf, int sendcount, double *recvbuf,
     memcpy(sendbuf_tmp + (i*sendcount), recvbuf + (i_rot*sendcount), sendcount * sizeof(double));
     i_rot = (i_rot + sendcount) % num_vals;
   }
-  if (rank == 1) {
+  if (DEBUG && rank == 1) {
     debug_print_buffer(sendbuf_tmp, num_vals);
     fprintf(stderr, "-----------------------\n");
   }
@@ -193,8 +196,20 @@ void RSM_Alltoall(const double *sendbuf, int sendcount, double *recvbuf,
     MPI_Wait(&recv_request, MPI_STATUS_IGNORE);
   }
   memcpy(sendbuf_tmp, recvbuf, num_vals * sizeof(double));
-  if (rank == 1) {
-    fprintf(stderr, "left_neigh: %d, right_neigh: %d, sendcount: %d\n", left_neighbor_shared, right_neighbor_shared, sendcount);
+  if (DEBUG && rank == 1) {
+    debug_print_buffer(sendbuf_tmp, num_vals);
+    fprintf(stderr, "-----------------------\n");
+  }
+
+  // send groups of 2 rows left 2 proc, locally
+  for (int i = 2; i < num_ranks; i += 4) {
+    MPI_Isend(sendbuf_tmp + i*sendcount , 2*sendcount, MPI_DOUBLE, left_two_shared, 4, comm_shared, &send_request);
+    MPI_Irecv(recvbuf + i*sendcount, 2*sendcount, MPI_DOUBLE, right_two_shared, 4, comm_shared, &recv_request);
+    MPI_Wait(&send_request, MPI_STATUS_IGNORE);
+    MPI_Wait(&recv_request, MPI_STATUS_IGNORE);
+  }
+  memcpy(sendbuf_tmp, recvbuf, num_vals * sizeof(double));
+  if (DEBUG && rank == 1) {
     debug_print_buffer(sendbuf_tmp, num_vals);
     fprintf(stderr, "-----------------------\n");
   }
@@ -224,7 +239,7 @@ int main(int argc, char *argv[]) {
     if (num_doubles % num_procs != 0)
       continue;
 
-    if (rank == 0) {
+    if (DEBUG && rank == 0) {
       fprintf(stderr, "[DEBUG] num_doubles=%d\n", num_doubles);
       fprintf(stderr, "[DEBUG] chunk_size=%d\n", chunk_size);
       fprintf(stderr, "[DEBUG] num_procs=%d\n", num_procs);
