@@ -281,7 +281,7 @@ void RSM_Alltoall(const double *sendbuf, int sendcount, double *recvbuf,
   delete[] sendbuf_tmp;
   
   // make sure all ranks fill return buffer before returning
-  MPI_Barrier(comm);
+  // MPI_Barrier(comm); // TODO I don't know if this is needed...
 }
 
 // main for testing and debugging
@@ -324,7 +324,7 @@ int main(int argc, char *argv[]) {
     RSM_Alltoall(data_send, chunk_size, data_recv, MPI_COMM_WORLD);
 
     for (int i = 0; i < num_doubles; ++i)
-     assert_doubles_approx_equal(check_data_recv[i], data_recv[i], 1e-5);
+        assert_doubles_approx_equal(check_data_recv[i], data_recv[i], 1e-5);
 
     // warmup and barrier before timing local version
     RSM_Alltoall(data_send, chunk_size, data_recv, MPI_COMM_WORLD);
