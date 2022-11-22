@@ -99,7 +99,7 @@ void RSM_Alltoall(const double *sendbuf, int sendcount, double *recvbuf,
   const int right_two_shared = (rank_shared + 2) % ppn;
   const int left_two_shared = (rank_shared + ppn - 2) % ppn; // left(x) === right(total-x)
   const int my_node = rank / ppn;
-  double *sendbuf_tmp = new double[num_vals];
+  double *tmpbuf = new double[num_vals];
   MPI_Request send_request;
   MPI_Request recv_request;
 
@@ -110,40 +110,39 @@ void RSM_Alltoall(const double *sendbuf, int sendcount, double *recvbuf,
   // rotate up by rank * ppn rows
   int i_rot = (rank * ppn) % num_ranks;
   for (int i = 0; i < num_ranks; ++i) {
-    memcpy(sendbuf_tmp + (i*sendcount), sendbuf + (i_rot*sendcount), sendcount * sizeof(double));
+    memcpy(tmpbuf + (i*sendcount), sendbuf + (i_rot*sendcount), sendcount * sizeof(double));
     i_rot = (i_rot + 1) % num_ranks;
   }
   if (DEBUG && rank == DEBUG_RANK) {
-    debug_print_buffer(sendbuf_tmp, num_vals);
+    debug_print_buffer(tmpbuf, num_vals);
     fprintf(stderr, "-----------------------\n");
   }
 
   // initialize recv buff
-  memcpy(recvbuf, sendbuf_tmp, num_vals * sizeof(double));
+  memcpy(recvbuf, tmpbuf, num_vals * sizeof(double));
 
   // send every 1*ppn rows 1 process away, locally
   for (int i = ppn; i < num_ranks; i += 2*ppn) {
-    MPI_Isend(sendbuf_tmp + i*sendcount , ppn*sendcount, MPI_DOUBLE, right_neighbor_shared, 0, comm_shared, &send_request);
+    MPI_Isend(tmpbuf + i*sendcount , ppn*sendcount, MPI_DOUBLE, right_neighbor_shared, 0, comm_shared, &send_request);
     MPI_Irecv(recvbuf + i*sendcount, ppn*sendcount, MPI_DOUBLE, left_neighbor_shared, 0, comm_shared, &recv_request);
     MPI_Wait(&send_request, MPI_STATUS_IGNORE);
     MPI_Wait(&recv_request, MPI_STATUS_IGNORE);
   }
-  memcpy(sendbuf_tmp, recvbuf, num_vals * sizeof(double));
+  memcpy(tmpbuf, recvbuf, num_vals * sizeof(double));
   if (DEBUG && rank == DEBUG_RANK) {
-    debug_print_buffer(sendbuf_tmp, num_vals);
+    debug_print_buffer(tmpbuf, num_vals);
     fprintf(stderr, "-----------------------\n");
   }
 
   // send every 2*ppn rows 2 processes away
   for (int i = 2*ppn; i < num_ranks; i += 2*2*ppn) {
-    MPI_Isend(sendbuf_tmp + i*sendcount , 2*ppn*sendcount, MPI_DOUBLE, right_two_shared, 1, comm_shared, &send_request);
+    MPI_Isend(tmpbuf + i*sendcount , 2*ppn*sendcount, MPI_DOUBLE, right_two_shared, 1, comm_shared, &send_request);
     MPI_Irecv(recvbuf + i*sendcount, 2*ppn*sendcount, MPI_DOUBLE, left_two_shared, 1, comm_shared, &recv_request);
     MPI_Wait(&send_request, MPI_STATUS_IGNORE);
     MPI_Wait(&recv_request, MPI_STATUS_IGNORE);
   }
-  memcpy(sendbuf_tmp, recvbuf, num_vals * sizeof(double));
   if (DEBUG && rank == DEBUG_RANK) {
-    debug_print_buffer(sendbuf_tmp, num_vals);
+    debug_print_buffer(recvbuf, num_vals);
     fprintf(stderr, "-----------------------\n");
   }
 
@@ -155,121 +154,115 @@ void RSM_Alltoall(const double *sendbuf, int sendcount, double *recvbuf,
 
   // rank r on node n exchanges data with rank n node r
   int exchange_rank = node_rank_table[rank_shared*ppn + my_node];
-  MPI_Isend(sendbuf_tmp, num_vals, MPI_DOUBLE, exchange_rank, 2, comm, &send_request);
-  MPI_Irecv(recvbuf, num_vals, MPI_DOUBLE, exchange_rank,  2, comm, &recv_request);
+  MPI_Isend(recvbuf, num_vals, MPI_DOUBLE, exchange_rank, 2, comm, &send_request);
+  MPI_Irecv(tmpbuf, num_vals, MPI_DOUBLE, exchange_rank,  2, comm, &recv_request);
   MPI_Wait(&send_request, MPI_STATUS_IGNORE);
   MPI_Wait(&recv_request, MPI_STATUS_IGNORE);
+  if (DEBUG && rank == DEBUG_RANK) {
+    debug_print_buffer(tmpbuf, num_vals);
+    fprintf(stderr, "-----------------------\n");
+  }
+
+  // rotate up by (node+1)*ppn rows
+  i_rot = ((my_node+1) * ppn) % num_ranks;
+  for (int i = 0; i < num_ranks; ++i) {
+    memcpy(recvbuf + (i*sendcount), tmpbuf + (i_rot*sendcount), sendcount * sizeof(double));
+    i_rot = (i_rot + 1) % num_ranks;
+  }
   if (DEBUG && rank == DEBUG_RANK) {
     debug_print_buffer(recvbuf, num_vals);
     fprintf(stderr, "-----------------------\n");
   }
 
-  // rotate up by (node+1)*ppn rows
-  // do rotation form recvbuf from last exchange into sendbuf_tmp
-  i_rot = ((my_node+1) * ppn) % num_ranks;
-  for (int i = 0; i < num_ranks; ++i) {
-    memcpy(sendbuf_tmp + (i*sendcount), recvbuf + (i_rot*sendcount), sendcount * sizeof(double));
-    i_rot = (i_rot + 1) % num_ranks;
-  }
-  if (DEBUG && rank == DEBUG_RANK) {
-    debug_print_buffer(sendbuf_tmp, num_vals);
-    fprintf(stderr, "-----------------------\n");
-  }
-
   // reverse within chunks of size ppn
-  // reverse fom sendbuf_tmp into recvbuf
   for (int i = 0; i < ppn; ++i) {
     int j_rev = ppn - 1;
-    double *recv_chunk_start = recvbuf + i*sendcount*ppn;
-    double *send_chunk_start = sendbuf_tmp + i*sendcount*ppn;
+    double *recv_chunk_start = tmpbuf + i*sendcount*ppn;
+    double *send_chunk_start = recvbuf + i*sendcount*ppn;
     for (int j = 0; j < ppn; ++j) {
       memcpy(recv_chunk_start + j*sendcount, send_chunk_start + j_rev*sendcount, sendcount * sizeof(double));
       j_rev -= 1;
     }
   }
   if (DEBUG && rank == DEBUG_RANK) {
-    debug_print_buffer(recvbuf, num_vals);
+    debug_print_buffer(tmpbuf, num_vals);
     fprintf(stderr, "-----------------------\n");
   }
 
   // rotate up ppn-rank_shared-1
-  // do rotation form recvbuf into sendbuf_tmp
   i_rot = (ppn-rank_shared-1) % num_ranks;
   if (DEBUG && rank == DEBUG_RANK) {
     fprintf(stderr, "rotate up ppn-rank_shared-1\n");
   }
   for (int i = 0; i < num_ranks; ++i) {
-    memcpy(sendbuf_tmp + (i*sendcount), recvbuf + (i_rot*sendcount), sendcount * sizeof(double));
+    memcpy(recvbuf + (i*sendcount), tmpbuf + (i_rot*sendcount), sendcount * sizeof(double));
     i_rot = (i_rot + 1) % num_ranks;
   }
   if (DEBUG && rank == DEBUG_RANK) {
-    debug_print_buffer(sendbuf_tmp, num_vals);
+    debug_print_buffer(recvbuf, num_vals);
     fprintf(stderr, "-----------------------\n");
   }
 
-  // prep recv buff since new data
-  memcpy(recvbuf, sendbuf_tmp, num_vals * sizeof(double));
+  // prep buff since new data
+  memcpy(tmpbuf, recvbuf, num_vals * sizeof(double));
 
   // send groups of 1 row left 1 proc, locally
   for (int i = 1; i < num_ranks; i += 2) {
-    MPI_Isend(sendbuf_tmp + i*sendcount , sendcount, MPI_DOUBLE, left_neighbor_shared, 3, comm_shared, &send_request);
+    MPI_Isend(tmpbuf + i*sendcount , sendcount, MPI_DOUBLE, left_neighbor_shared, 3, comm_shared, &send_request);
     MPI_Irecv(recvbuf + i*sendcount, sendcount, MPI_DOUBLE, right_neighbor_shared, 3, comm_shared, &recv_request);
     MPI_Wait(&send_request, MPI_STATUS_IGNORE);
     MPI_Wait(&recv_request, MPI_STATUS_IGNORE);
   }
-  memcpy(sendbuf_tmp, recvbuf, num_vals * sizeof(double));
+  memcpy(tmpbuf, recvbuf, num_vals * sizeof(double));
   if (DEBUG && rank == DEBUG_RANK) {
-    debug_print_buffer(sendbuf_tmp, num_vals);
+    debug_print_buffer(tmpbuf, num_vals);
     fprintf(stderr, "-----------------------\n");
   }
 
   // send groups of 2 rows left 2 proc, locally
   for (int i = 2; i < num_ranks; i += 4) {
-    MPI_Isend(sendbuf_tmp + i*sendcount , 2*sendcount, MPI_DOUBLE, left_two_shared, 4, comm_shared, &send_request);
-    MPI_Irecv(recvbuf + i*sendcount, 2*sendcount, MPI_DOUBLE, right_two_shared, 4, comm_shared, &recv_request);
+    MPI_Isend(recvbuf + i*sendcount , 2*sendcount, MPI_DOUBLE, left_two_shared, 4, comm_shared, &send_request);
+    MPI_Irecv(tmpbuf + i*sendcount, 2*sendcount, MPI_DOUBLE, right_two_shared, 4, comm_shared, &recv_request);
     MPI_Wait(&send_request, MPI_STATUS_IGNORE);
     MPI_Wait(&recv_request, MPI_STATUS_IGNORE);
   }
   if (DEBUG && rank == DEBUG_RANK) {
-    debug_print_buffer(recvbuf, num_vals);
+    debug_print_buffer(tmpbuf, num_vals);
     fprintf(stderr, "-----------------------\n");
   }
 
   // rotate down (left) by local rank
   // = 0 - rank_shared (w/ wrap around)
   // = (0 + num_ranks - rank_shared) % num_ranks
-  // rotate from recvbuf to sendbuf_tmp
   i_rot = (num_ranks - rank_shared) % num_ranks;
   for (int i = 0; i < num_ranks; ++i) {
-    memcpy(sendbuf_tmp + (i*sendcount), recvbuf + (i_rot*sendcount), sendcount * sizeof(double));
+    memcpy(recvbuf + (i*sendcount), tmpbuf + (i_rot*sendcount), sendcount * sizeof(double));
     i_rot = (i_rot + 1) % num_ranks;
   }
   if (DEBUG && rank == DEBUG_RANK) {
-    debug_print_buffer(sendbuf_tmp, num_vals);
+    debug_print_buffer(recvbuf, num_vals);
     fprintf(stderr, "-----------------------\n");
   }
 
   // reverse among groups (not within)
   // i.e. reverse by chunks of size ppn
-  // reverse from sendbuf_tmp into recvbuf
   int j_rev = ppn - 1;
   for (int i = 0; i < ppn; ++i) {
-    double *recv_chunk_start = recvbuf + i*sendcount*ppn;
-    double *send_chunk_start = sendbuf_tmp + j_rev*sendcount*ppn;
+    double *recv_chunk_start = tmpbuf + i*sendcount*ppn;
+    double *send_chunk_start = recvbuf + j_rev*sendcount*ppn;
     memcpy(recv_chunk_start, send_chunk_start, sendcount*ppn*sizeof(double));
     j_rev -= 1;
   }
-  memcpy(sendbuf_tmp, recvbuf, num_vals * sizeof(double));
   if (DEBUG && rank == DEBUG_RANK) {
-    debug_print_buffer(sendbuf_tmp, num_vals);
+    debug_print_buffer(tmpbuf, num_vals);
     fprintf(stderr, "-----------------------\n");
   }
 
   // transpose (array[i*ppn+j] = array[j*ppn+1])
-  // transform from sendbuf_tmp into recvbuf (final answer and return param)
+  // transform from tmpbuf into recvbuf (final answer and return param)
   for (int i = 0; i < ppn; ++i) {
     for (int j = 0; j < ppn; ++j) {
-      memcpy(recvbuf + (i*sendcount*ppn + j*sendcount), sendbuf_tmp + (j*sendcount*ppn + i*sendcount), sendcount*sizeof(double));
+      memcpy(recvbuf + (i*sendcount*ppn + j*sendcount), tmpbuf + (j*sendcount*ppn + i*sendcount), sendcount*sizeof(double));
     }
   }
   if (DEBUG && rank == DEBUG_RANK) {
@@ -278,7 +271,8 @@ void RSM_Alltoall(const double *sendbuf, int sendcount, double *recvbuf,
   }
 
   // clean up
-  delete[] sendbuf_tmp;
+  delete[] tmpbuf;
+  delete[] node_rank_table;
   
   // make sure all ranks fill return buffer before returning
   // MPI_Barrier(comm); // TODO I don't know if this is needed...
