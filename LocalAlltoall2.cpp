@@ -241,6 +241,9 @@ void RSM_Alltoall(const double *sendbuf, int sendcount, double *recvbuf,
     if (rank_shared % 2 == 0) {
       MPI_Send(recvbuf + i*sendcount , 2*sendcount, MPI_DOUBLE, left_two_shared, 4, comm_shared);
       MPI_Recv(tmpbuf + i*sendcount, 2*sendcount, MPI_DOUBLE, right_two_shared, 4, comm_shared, MPI_STATUS_IGNORE);
+    } else {
+      MPI_Recv(tmpbuf + i*sendcount, 2*sendcount, MPI_DOUBLE, right_two_shared, 4, comm_shared, MPI_STATUS_IGNORE);
+      MPI_Send(recvbuf + i*sendcount , 2*sendcount, MPI_DOUBLE, left_two_shared, 4, comm_shared);
     }
   }
   if (DEBUG && rank == DEBUG_RANK) {
