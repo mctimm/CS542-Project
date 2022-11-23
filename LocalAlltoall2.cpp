@@ -124,8 +124,8 @@ void RSM_Alltoall(const double *sendbuf, int sendcount, double *recvbuf,
 
   // send every 1*ppn rows 1 process away, locally
    for (int i = ppn; i < num_ranks; i += 2*ppn) {
-     MPI_Isend(tmpbuf + i*sendcount , ppn*sendcount, MPI_DOUBLE, right_neighbor_shared, 0, comm_shared, &send_request);
      MPI_Irecv(recvbuf + i*sendcount, ppn*sendcount, MPI_DOUBLE, left_neighbor_shared, 0, comm_shared, &recv_request);
+     MPI_Isend(tmpbuf + i*sendcount , ppn*sendcount, MPI_DOUBLE, right_neighbor_shared, 0, comm_shared, &send_request);
      MPI_Wait(&send_request, MPI_STATUS_IGNORE);
      MPI_Wait(&recv_request, MPI_STATUS_IGNORE);
    }
@@ -137,8 +137,8 @@ void RSM_Alltoall(const double *sendbuf, int sendcount, double *recvbuf,
 
   // send every 2*ppn rows 2 processes away
   for (int i = 2*ppn; i < num_ranks; i += 2*2*ppn) {
-    MPI_Isend(tmpbuf + i*sendcount , 2*ppn*sendcount, MPI_DOUBLE, right_two_shared, 1, comm_shared, &send_request);
     MPI_Irecv(recvbuf + i*sendcount, 2*ppn*sendcount, MPI_DOUBLE, left_two_shared, 1, comm_shared, &recv_request);
+    MPI_Isend(tmpbuf + i*sendcount , 2*ppn*sendcount, MPI_DOUBLE, right_two_shared, 1, comm_shared, &send_request);
     MPI_Wait(&send_request, MPI_STATUS_IGNORE);
     MPI_Wait(&recv_request, MPI_STATUS_IGNORE);
   }
@@ -155,8 +155,8 @@ void RSM_Alltoall(const double *sendbuf, int sendcount, double *recvbuf,
 
   // rank r on node n exchanges data with rank n node r
   int exchange_rank = node_rank_table[rank_shared*ppn + my_node];
-  MPI_Isend(recvbuf, num_vals, MPI_DOUBLE, exchange_rank, 0, comm, &send_request);
   MPI_Irecv(tmpbuf, num_vals, MPI_DOUBLE, exchange_rank,  0, comm, &recv_request);
+  MPI_Isend(recvbuf, num_vals, MPI_DOUBLE, exchange_rank, 0, comm, &send_request);
   MPI_Wait(&send_request, MPI_STATUS_IGNORE);
   MPI_Wait(&recv_request, MPI_STATUS_IGNORE);
   if (DEBUG && rank == DEBUG_RANK) {
@@ -209,10 +209,10 @@ void RSM_Alltoall(const double *sendbuf, int sendcount, double *recvbuf,
 
   // send groups of 1 row left 1 proc, locally
   for (int i = 1; i < num_ranks; i += 2) {
+    MPI_Irecv(recvbuf + i*sendcount, sendcount, MPI_DOUBLE, right_neighbor_shared, 3, comm_shared, &recv_request);
     MPI_Isend(tmpbuf + i*sendcount , sendcount, MPI_DOUBLE, left_neighbor_shared, 3, comm_shared, &send_request);
     MPI_Wait(&send_request, MPI_STATUS_IGNORE);
     MPI_Wait(&recv_request, MPI_STATUS_IGNORE);
-    MPI_Irecv(recvbuf + i*sendcount, sendcount, MPI_DOUBLE, right_neighbor_shared, 3, comm_shared, &recv_request);
   }
   memcpy(tmpbuf, recvbuf, num_vals * sizeof(double));
   if (DEBUG && rank == DEBUG_RANK) {
@@ -222,8 +222,8 @@ void RSM_Alltoall(const double *sendbuf, int sendcount, double *recvbuf,
 
   // send groups of 2 rows left 2 proc, locally
   for (int i = 2; i < num_ranks; i += 4) {
-    MPI_Isend(recvbuf + i*sendcount , 2*sendcount, MPI_DOUBLE, left_two_shared, 4, comm_shared, &send_request);
     MPI_Irecv(tmpbuf + i*sendcount, 2*sendcount, MPI_DOUBLE, right_two_shared, 4, comm_shared, &recv_request);
+    MPI_Isend(recvbuf + i*sendcount , 2*sendcount, MPI_DOUBLE, left_two_shared, 4, comm_shared, &send_request);
     MPI_Wait(&send_request, MPI_STATUS_IGNORE);
     MPI_Wait(&recv_request, MPI_STATUS_IGNORE);
   }
