@@ -74,4 +74,20 @@ RSM_Alltoall,16,65536,0.00245265
 RSM_Alltoall,16,131072,0.0123868
 RSM_Alltoall,16,262144,0.0132441
 RSM_Alltoall,16,524288,0.0300189
+RSM_Alltoall_manpack,16,16,9.4229e-05
+RSM_Alltoall_manpack,16,32,9.04851e-05
+RSM_Alltoall_manpack,16,64,9.233e-05
+RSM_Alltoall_manpack,16,128,9.36899e-05
+RSM_Alltoall_manpack,16,256,9.83641e-05
+RSM_Alltoall_manpack,16,512,0.000101523
+RSM_Alltoall_manpack,16,1024,0.000122862
+RSM_Alltoall_manpack,16,2048,0.000262203
+RSM_Alltoall_manpack,16,4096,0.000327402
+RSM_Alltoall_manpack,16,8192,0.000465395
+RSM_Alltoall_manpack,16,16384,0.000946437
+RSM_Alltoall_manpack,16,32768,0.194532
+RSM_Alltoall_manpack,16,65536,0.0039064
+RSM_Alltoall_manpack,16,131072,0.00971611
+RSM_Alltoall_manpack,16,262144,0.0229691
+RSM_Alltoall_manpack,16,524288,0.0544735
 
