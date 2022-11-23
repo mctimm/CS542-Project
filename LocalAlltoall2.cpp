@@ -99,7 +99,6 @@ void RSM_Alltoall(const double *sendbuf, int sendcount, double *recvbuf,
   const int right_two_shared = (rank_shared + 2) % ppn;
   const int left_two_shared = (rank_shared + ppn - 2) % ppn; // left(x) === right(total-x)
   const int my_node = rank / ppn;
-  const int packbuf_bytes = num_vals * sizeof(double);
   double *tmpbuf = new double[num_vals];
   double *packbuf = new double[num_vals];
   double *unpackbuf = new double[num_vals];
@@ -126,14 +125,22 @@ void RSM_Alltoall(const double *sendbuf, int sendcount, double *recvbuf,
   // initialize recv buff
   memcpy(recvbuf, tmpbuf, num_vals * sizeof(double));
 
-  ////////////////////////////////////////////////
   // send every 1*ppn rows 1 process away, locally
-  ////////////////////////////////////////////////
+  // for (int i = ppn; i < num_ranks; i += 2*ppn) {
+  //   MPI_Isend(tmpbuf + i*sendcount , ppn*sendcount, MPI_DOUBLE, right_neighbor_shared, 0, comm_shared, &send_request);
+  //   MPI_Irecv(recvbuf + i*sendcount, ppn*sendcount, MPI_DOUBLE, left_neighbor_shared, 0, comm_shared, &recv_request);
+  //   MPI_Wait(&send_request, MPI_STATUS_IGNORE);
+  //   MPI_Wait(&recv_request, MPI_STATUS_IGNORE);
+  // }
+  // memcpy(tmpbuf, recvbuf, num_vals * sizeof(double));
+  // if (DEBUG && rank == DEBUG_RANK) {
+  //   debug_print_buffer(tmpbuf, num_vals);
+  //   fprintf(stderr, "-----------------------\n");
+  // }
+
   // pack
-  pack_position = 0;
-  int i = 1;
   for (int i = ppn; i < num_ranks; i += 2*ppn) {
-    MPI_Pack(tmpbuf + i*sendcount, ppn*sendcount, MPI_DOUBLE, packbuf, packbuf_bytes, &pack_position, comm_shared);
+    MPI_Pack(tmpbuf + i*sendcount , ppn*sendcount, MPI_DOUBLE, packbuf, ppn*sendcount, &pack_position, comm_shared);
   }
   // send and recv
   MPI_Isend(packbuf, pack_position, MPI_PACKED, right_neighbor_shared, 0, comm_shared, &send_request);
@@ -141,9 +148,8 @@ void RSM_Alltoall(const double *sendbuf, int sendcount, double *recvbuf,
   MPI_Wait(&send_request, MPI_STATUS_IGNORE);
   MPI_Wait(&recv_request, MPI_STATUS_IGNORE);
   // unpack
-  unpack_position = 0;
   for (int i = ppn; i < num_ranks; i += 2*ppn) {
-    MPI_Unpack(unpackbuf, packbuf_bytes, &unpack_position, recvbuf + i*sendcount, ppn*sendcount, MPI_DOUBLE, comm_shared);
+    MPI_Unpack(unpackbuf, pack_position, &unpack_position, recvbuf + i*sendcount, ppn*sendcount, MPI_DOUBLE, comm_shared);
   }
   memcpy(tmpbuf, recvbuf, num_vals * sizeof(double));
   if (DEBUG && rank == DEBUG_RANK) {
@@ -151,23 +157,12 @@ void RSM_Alltoall(const double *sendbuf, int sendcount, double *recvbuf,
     fprintf(stderr, "-----------------------\n");
   }
 
-  /////////////////////////////////////////
   // send every 2*ppn rows 2 processes away
-  /////////////////////////////////////////
-  // pack
-  pack_position = 0;
   for (int i = 2*ppn; i < num_ranks; i += 2*2*ppn) {
-    MPI_Pack(tmpbuf + i*sendcount, 2*ppn*sendcount, MPI_DOUBLE, packbuf, packbuf_bytes, &pack_position, comm_shared);
-  }
-  // send and recv
-  MPI_Isend(packbuf, pack_position, MPI_PACKED, right_two_shared, 0, comm_shared, &send_request);
-  MPI_Irecv(unpackbuf, pack_position, MPI_PACKED, left_two_shared, 0, comm_shared, &recv_request);
-  MPI_Wait(&send_request, MPI_STATUS_IGNORE);
-  MPI_Wait(&recv_request, MPI_STATUS_IGNORE);
-  // unpack
-  unpack_position = 0;
-  for (int i = 2*ppn; i < num_ranks; i += 2*2*ppn) {
-    MPI_Unpack(unpackbuf, packbuf_bytes, &unpack_position, recvbuf + i*sendcount, 2*ppn*sendcount, MPI_DOUBLE, comm_shared);
+    MPI_Isend(tmpbuf + i*sendcount , 2*ppn*sendcount, MPI_DOUBLE, right_two_shared, 1, comm_shared, &send_request);
+    MPI_Irecv(recvbuf + i*sendcount, 2*ppn*sendcount, MPI_DOUBLE, left_two_shared, 1, comm_shared, &recv_request);
+    MPI_Wait(&send_request, MPI_STATUS_IGNORE);
+    MPI_Wait(&recv_request, MPI_STATUS_IGNORE);
   }
   if (DEBUG && rank == DEBUG_RANK) {
     debug_print_buffer(recvbuf, num_vals);
@@ -232,23 +227,12 @@ void RSM_Alltoall(const double *sendbuf, int sendcount, double *recvbuf,
   // prep buff since new data
   memcpy(tmpbuf, recvbuf, num_vals * sizeof(double));
 
-  ////////////////////////////////////////////
   // send groups of 1 row left 1 proc, locally
-  ////////////////////////////////////////////
-  // pack
-  pack_position = 0;
   for (int i = 1; i < num_ranks; i += 2) {
-    MPI_Pack(tmpbuf + i*sendcount, sendcount, MPI_DOUBLE, packbuf, packbuf_bytes, &pack_position, comm_shared);
-  }
-  // send and recv
-  MPI_Isend(packbuf, pack_position, MPI_PACKED, left_neighbor_shared, 0, comm_shared, &send_request);
-  MPI_Irecv(unpackbuf, pack_position, MPI_PACKED, right_neighbor_shared, 0, comm_shared, &recv_request);
-  MPI_Wait(&send_request, MPI_STATUS_IGNORE);
-  MPI_Wait(&recv_request, MPI_STATUS_IGNORE);
-  // unpack
-  unpack_position = 0;
-  for (int i = 1; i < num_ranks; i += 2) {
-    MPI_Unpack(unpackbuf, packbuf_bytes, &unpack_position, recvbuf + i*sendcount, sendcount, MPI_DOUBLE, comm_shared);
+    MPI_Isend(tmpbuf + i*sendcount , sendcount, MPI_DOUBLE, left_neighbor_shared, 3, comm_shared, &send_request);
+    MPI_Irecv(recvbuf + i*sendcount, sendcount, MPI_DOUBLE, right_neighbor_shared, 3, comm_shared, &recv_request);
+    MPI_Wait(&send_request, MPI_STATUS_IGNORE);
+    MPI_Wait(&recv_request, MPI_STATUS_IGNORE);
   }
   memcpy(tmpbuf, recvbuf, num_vals * sizeof(double));
   if (DEBUG && rank == DEBUG_RANK) {
@@ -256,23 +240,12 @@ void RSM_Alltoall(const double *sendbuf, int sendcount, double *recvbuf,
     fprintf(stderr, "-----------------------\n");
   }
 
-  /////////////////////////////////////////////
   // send groups of 2 rows left 2 proc, locally
-  /////////////////////////////////////////////
-  // pack
-  pack_position = 0;
   for (int i = 2; i < num_ranks; i += 4) {
-    MPI_Pack(recvbuf + i*sendcount, 2*sendcount, MPI_DOUBLE, packbuf, packbuf_bytes, &pack_position, comm_shared);
-  }
-  // send and recv
-  MPI_Isend(packbuf, pack_position, MPI_PACKED, left_two_shared, 0, comm_shared, &send_request);
-  MPI_Irecv(unpackbuf, pack_position, MPI_PACKED, right_two_shared, 0, comm_shared, &recv_request);
-  MPI_Wait(&send_request, MPI_STATUS_IGNORE);
-  MPI_Wait(&recv_request, MPI_STATUS_IGNORE);
-  // unpack
-  unpack_position = 0;
-  for (int i = 2; i < num_ranks; i += 4) {
-    MPI_Unpack(unpackbuf, packbuf_bytes, &unpack_position, tmpbuf + i*sendcount, 2*sendcount, MPI_DOUBLE, comm_shared);
+    MPI_Isend(recvbuf + i*sendcount , 2*sendcount, MPI_DOUBLE, left_two_shared, 4, comm_shared, &send_request);
+    MPI_Irecv(tmpbuf + i*sendcount, 2*sendcount, MPI_DOUBLE, right_two_shared, 4, comm_shared, &recv_request);
+    MPI_Wait(&send_request, MPI_STATUS_IGNORE);
+    MPI_Wait(&recv_request, MPI_STATUS_IGNORE);
   }
   if (DEBUG && rank == DEBUG_RANK) {
     debug_print_buffer(tmpbuf, num_vals);
@@ -341,7 +314,6 @@ int main(int argc, char *argv[]) {
   //    printf("algorithm,num_procs,num_doubles_per_proc,seconds\n");
 
   // outer loop to test many message sizes
-  int count = 0; // TODO remove
   for (int i = log2(num_procs); i < 20; ++i) {
     int num_doubles = pow(2, i);
     int chunk_size = num_doubles / num_procs;
@@ -399,10 +371,6 @@ int main(int argc, char *argv[]) {
     delete[] data_recv;
     delete[] check_data_send;
     delete[] check_data_recv;
-    
-    if (count == 8)
-      break;
-    count++;
   }
 
   MPI_Finalize();
