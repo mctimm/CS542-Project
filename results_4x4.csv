@@ -106,5 +106,21 @@ RSM_Alltoall_mpipack,16,65536,0.0717186
 RSM_Alltoall_mpipack,16,131072,0.248148
 RSM_Alltoall_mpipack,16,262144,0.034879
 RSM_Alltoall_mpipack,16,524288,0.0498696
+RSM_Alltoall_manpack_sendrecv,16,16,0.000114082
+RSM_Alltoall_manpack_sendrecv,16,32,9.07922e-05
+RSM_Alltoall_manpack_sendrecv,16,64,9.89079e-05
+RSM_Alltoall_manpack_sendrecv,16,128,9.1855e-05
+RSM_Alltoall_manpack_sendrecv,16,256,9.44219e-05
+RSM_Alltoall_manpack_sendrecv,16,512,9.9432e-05
+RSM_Alltoall_manpack_sendrecv,16,1024,0.000121083
+RSM_Alltoall_manpack_sendrecv,16,2048,0.0015563
+RSM_Alltoall_manpack_sendrecv,16,4096,0.00146197
+RSM_Alltoall_manpack_sendrecv,16,8192,0.00091217
+RSM_Alltoall_manpack_sendrecv,16,16384,0.0016203
+RSM_Alltoall_manpack_sendrecv,16,32768,0.00232451
+RSM_Alltoall_manpack_sendrecv,16,65536,0.00493172
+RSM_Alltoall_manpack_sendrecv,16,131072,0.00957406
+RSM_Alltoall_manpack_sendrecv,16,262144,0.0230008
+RSM_Alltoall_manpack_sendrecv,16,524288,0.0481763
 
 
