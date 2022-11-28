@@ -18,21 +18,21 @@ void initialize_data(double *data, int size, int rank) {
 }
 
 //// this one is only for 4x4 to match spreadsheet!
-//void initialize_data(double *data, int size, int rank) {
-//  for(int i = 0; i < 16; ++i){
-//    data[i] = 16*(rank) + i;
-//  }
-//}
+// void initialize_data(double *data, int size, int rank) {
+//   for(int i = 0; i < 16; ++i){
+//     data[i] = 16*(rank) + i;
+//   }
+// }
 
 //// this one is only for 4x4 w/ 32 vals to match spreadsheet!
-//void initialize_data(double *data, int size, int rank) {
-//  int j = 0;
-//  for(int i = 0; i < 32; i += 2){
-//    data[i] = 16*(rank) + j;
-//    data[i+1] = 16*(rank) + j;
-//    ++j;
-//  }
-//}
+// void initialize_data(double *data, int size, int rank) {
+//   int j = 0;
+//   for(int i = 0; i < 32; i += 2){
+//     data[i] = 16*(rank) + j;
+//     data[i+1] = 16*(rank) + j;
+//     ++j;
+//   }
+// }
 
 // get_time gets the wall-clock time in seconds
 double get_time(void) {
@@ -47,7 +47,8 @@ void assert_doubles_approx_equal(double want, double got, double tolerance) {
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &num_ranks);
   if (abs(want - got) > tolerance) {
-    fprintf(stderr, "[ERROR] on rank %d/%d, assert double: want %g, got %g\n", rank, num_ranks, want, got);
+    fprintf(stderr, "[ERROR] on rank %d/%d, assert double: want %g, got %g\n",
+            rank, num_ranks, want, got);
   }
   assert(abs(want - got) <= tolerance);
 }
@@ -58,157 +59,176 @@ void debug_print_buffer(const double *buff, int size) {
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &num_ranks);
   for (int i = 0; i < size; ++i) {
-    fprintf(stderr, "[DEBUG] on rank %d/%d, buffer[%d]=%02x\n", rank, num_ranks, i, (int)buff[i]);
+    fprintf(stderr, "[DEBUG] on rank %d/%d, buffer[%d]=%02x\n", rank, num_ranks,
+            i, (int)buff[i]);
   }
 }
 
-void AlltoallNoShiftBuffered(double *data,int partition, double *data_temp, int size, int recv_size){
-    int rank, num_procs;
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
-    MPI_Status status;
+void Alltoall_local_bruck(const double *sendbuf, int sendcount, double *recvbuf,
+                          MPI_Comm comm) {
+  int rank, num_procs;
+  MPI_Comm_rank(comm, &rank);
+  MPI_Comm_size(comm, &num_procs);
+  MPI_Status status;
 
-    //split by node
-    MPI_Comm MPI_COMM_LOCAL;
+  // split by node
+  MPI_Comm comm_local;
+  MPI_Comm_split_type(comm, MPI_COMM_TYPE_SHARED, rank, MPI_INFO_NULL,
+                      &comm_local);
 
-    MPI_Comm_split_type(MPI_COMM_WORLD,
-        MPI_COMM_TYPE_SHARED,
-        rank, MPI_INFO_NULL,
-        &MPI_COMM_LOCAL);
+  int local_rank, local_num_procs;
+  MPI_Comm_rank(comm_local, &local_rank);
+  MPI_Comm_size(comm_local, &local_num_procs);
+  int node = rank / local_num_procs; // bit of integer division for the nodes,
+                                     // assuming alignment
+  int num_vals = sendcount * num_procs;
 
-    int local_rank, local_num_procs;
-    MPI_Comm_rank(MPI_COMM_LOCAL, &local_rank);
-    MPI_Comm_size(MPI_COMM_LOCAL, &local_num_procs);
-    int node = rank/local_num_procs; //bit of integer division for the nodes, assuming alignment
+  // temporary buffer so we dont mutate sendbuf
+  double *tempbuf = new double[num_vals];
+  memcpy(tempbuf, sendbuf, num_vals * sizeof(double));
 
+  // calculate number
+  int localsends = local_num_procs / 2;
 
-    //printf("%d proc, %d local\n", rank,local_rank);
-    //return;
-    //calculate number
-    int localsends = local_num_procs/2;
-
-    //initial shift
-    int startingIndex = local_rank*local_num_procs*recv_size % size;
-    //local sends
-    int sendsize = size/2;
-    double* sendBuffer = new double[sendsize];
-    MPI_Request send_request, recv_request;
-    for(int k = 1; k <= localsends; k*=2){ 
-        int count = 0;
-        for(int i = 0; i< local_num_procs/k;i++){
-            if((i % 2) == 0) continue;
-            for(int j = 0; j < local_num_procs*k*recv_size;j++){
-                sendBuffer[count++] = (data[(startingIndex + i*local_num_procs*k*recv_size + j) % size]);
-            }
-            
-        }
-        MPI_Isend(sendBuffer, sendsize, MPI_DOUBLE, (k+ local_rank) % local_num_procs, 1234, 
-            MPI_COMM_LOCAL,&send_request);
-    
-    
-        MPI_Irecv(data_temp, sendsize, MPI_DOUBLE, 
-            (local_rank - k) >= 0 ? local_rank -k: local_rank -k + local_num_procs, 1234, MPI_COMM_LOCAL, &recv_request);
-        MPI_Wait(&send_request,&status);
-        MPI_Wait(&recv_request,&status);
-        count = 0;
-        for(int i = 0; i< local_num_procs/k;i++){
-		 if(i %2 == 0) continue;
-            for(int j =0; j < local_num_procs*k*recv_size;j++){
-                data[(startingIndex + i*local_num_procs*k*recv_size + j) % size] = data_temp[count++];
-            }
-        }
+  // initial shift
+  int startingIndex = local_rank * local_num_procs * sendcount % num_vals;
+  // local sends
+  int sendsize = num_vals / 2;
+  double *sendBuffer = new double[sendsize];
+  MPI_Request send_request, recv_request;
+  for (int k = 1; k <= localsends; k *= 2) {
+    int count = 0;
+    for (int i = 0; i < local_num_procs / k; i++) {
+      if ((i % 2) == 0)
+        continue;
+      for (int j = 0; j < local_num_procs * k * sendcount; j++) {
+        sendBuffer[count++] =
+            (tempbuf[(startingIndex + i * local_num_procs * k * sendcount + j) %
+                     num_vals]);
+      }
     }
-    
-    //global send.
-    int nextsend = local_num_procs * local_rank + node; //calculate who to send to.
-    startingIndex = node*local_num_procs*recv_size % size;
-    MPI_Isend(data, size, MPI_DOUBLE, nextsend, 1234, 
-            MPI_COMM_WORLD,&send_request);
-    
-    
-    MPI_Irecv(data_temp, size, MPI_DOUBLE, nextsend, 1234, MPI_COMM_WORLD, &recv_request);
-    MPI_Wait(&send_request,&status);
-    MPI_Wait(&recv_request,&status);
-    for(int j =0; j < size;j++){
-        data[j] = (data_temp[j]);
-    }
+    MPI_Isend(sendBuffer, sendsize, MPI_DOUBLE,
+              (k + local_rank) % local_num_procs, 1234, comm_local,
+              &send_request);
 
-
-    
-    //reverse and rotate data
-    for(int i = 0; i < local_num_procs;i++){
-        
-        int start = i*local_num_procs;
-        int end = (1+i)*local_num_procs - 1;
-        while (start < end)
-        {
-            for(int j = 0; j < recv_size;j++){
-		double tmp = data[start*recv_size+j];
-                data[start*recv_size+j] = data[end*recv_size+j];
-		data[end*recv_size+j] = tmp;
-            }
-            //double tmp = data[start];
-            //data[start] = data[end];
-            //data[end] = tmp;
-            start++;
-            end--;
-        }
-        
+    MPI_Irecv(recvbuf, sendsize, MPI_DOUBLE,
+              (local_rank - k) >= 0 ? local_rank - k
+                                    : local_rank - k + local_num_procs,
+              1234, comm_local, &recv_request);
+    MPI_Wait(&send_request, &status);
+    MPI_Wait(&recv_request, &status);
+    count = 0;
+    for (int i = 0; i < local_num_procs / k; i++) {
+      if (i % 2 == 0)
+        continue;
+      for (int j = 0; j < local_num_procs * k * sendcount; j++) {
+        tempbuf[(startingIndex + i * local_num_procs * k * sendcount + j) %
+                num_vals] = recvbuf[count++];
+      }
     }
-    
+  }
 
-    
-    startingIndex += (((node+1) * local_num_procs * recv_size) + ((local_num_procs - local_rank-1)*recv_size)) % size;
-    //adjusting the starting index
+  // global send.
+  int nextsend =
+      local_num_procs * local_rank + node; // calculate who to send to.
+  startingIndex = node * local_num_procs * sendcount % num_vals;
+  MPI_Isend(tempbuf, num_vals, MPI_DOUBLE, nextsend, 1234, comm, &send_request);
 
-    
-    
-    //second local sends
-    for(int k = 1; k <= localsends; k*=2){
-        int count = 0;
-        for(int i = 0; i < (size/recv_size)/k;i++){
-            if((i % 2) == 0) continue;
-            for(int j = 0; j < k*recv_size;j++){
-                sendBuffer[count++] = data[(startingIndex + i*k*recv_size + j) % size];
-            }
-        }
-        MPI_Isend(sendBuffer, sendsize, MPI_DOUBLE,  (local_rank - k) >= 0 ? local_rank -k: local_rank -k + local_num_procs, 1234, 
-                MPI_COMM_LOCAL,&send_request);
-        MPI_Irecv(data_temp, sendsize, MPI_DOUBLE, 
-                (local_rank + k )% local_num_procs, 1234, MPI_COMM_LOCAL, &recv_request);
-        MPI_Wait(&send_request,&status);
-        MPI_Wait(&recv_request,&status);
-        count = 0;
-        for(int i = 0; i < (size/recv_size)/k;i++){
-		if(i %2 == 0) continue;
-            for(int j = 0; j < k*recv_size; j++){
-		
-                data[(startingIndex + i*k*recv_size + j) % size] = data_temp[count++];
-            }
+  MPI_Irecv(recvbuf, num_vals, MPI_DOUBLE, nextsend, 1234, comm, &recv_request);
+  MPI_Wait(&send_request, &status);
+  MPI_Wait(&recv_request, &status);
+  for (int j = 0; j < num_vals; j++) {
+    tempbuf[j] = (recvbuf[j]);
+  }
 
-        }
+  // reverse and rotate data
+  for (int i = 0; i < local_num_procs; i++) {
+
+    int start = i * local_num_procs;
+    int end = (1 + i) * local_num_procs - 1;
+    while (start < end) {
+      for (int j = 0; j < sendcount; j++) {
+        double tmp = tempbuf[start * sendcount + j];
+        tempbuf[start * sendcount + j] = tempbuf[end * sendcount + j];
+        tempbuf[end * sendcount + j] = tmp;
+      }
+      start++;
+      end--;
     }
-    startingIndex = (startingIndex - local_rank*recv_size) > 0 ? (startingIndex - local_rank*recv_size) : (startingIndex - local_rank*recv_size) + size;
-    
-    //REVERSE AMONG GROUPS (NOT WITHIN)
-    for(int i = 0; i < local_num_procs/2;i++){
-        for(int j = 0; j < local_num_procs;j++){
-            for(int k = 0; k < recv_size; k++){
-            data_temp[(i*local_num_procs + j)*recv_size + k] = data[(((local_num_procs-1 -i)*local_num_procs + j)*recv_size + k + startingIndex) % size];
-            data_temp[((local_num_procs-1 -i)*local_num_procs + j)*recv_size + k] = data[((i*local_num_procs+j)*recv_size + k + startingIndex) % size];
-            }
-        }   
+  }
+
+  startingIndex += (((node + 1) * local_num_procs * sendcount) +
+                    ((local_num_procs - local_rank - 1) * sendcount)) %
+                   num_vals;
+  // adjusting the starting index
+
+  // second local sends
+  for (int k = 1; k <= localsends; k *= 2) {
+    int count = 0;
+    for (int i = 0; i < (num_vals / sendcount) / k; i++) {
+      if ((i % 2) == 0)
+        continue;
+      for (int j = 0; j < k * sendcount; j++) {
+        sendBuffer[count++] =
+            tempbuf[(startingIndex + i * k * sendcount + j) % num_vals];
+      }
     }
-    //TRANSPOSE (ARRAY[I*PPN+J] = ARRAY[J*PPN+1])
-    for(int i = 0; i < local_num_procs;i++){
-        for(int j = 0; j < local_num_procs;j++){
-            for(int k = 0; k < recv_size; k++){
-                data[(i*local_num_procs+j)*recv_size + k] = data_temp[(j*local_num_procs+i)*recv_size + k];
-	            data[(j*local_num_procs+i)*recv_size + k] = data_temp[(i*local_num_procs+j)*recv_size + k];
-            }
-        }
+    MPI_Isend(sendBuffer, sendsize, MPI_DOUBLE,
+              (local_rank - k) >= 0 ? local_rank - k
+                                    : local_rank - k + local_num_procs,
+              1234, comm_local, &send_request);
+    MPI_Irecv(recvbuf, sendsize, MPI_DOUBLE, (local_rank + k) % local_num_procs,
+              1234, comm_local, &recv_request);
+    MPI_Wait(&send_request, &status);
+    MPI_Wait(&recv_request, &status);
+    count = 0;
+    for (int i = 0; i < (num_vals / sendcount) / k; i++) {
+      if (i % 2 == 0)
+        continue;
+      for (int j = 0; j < k * sendcount; j++) {
+        tempbuf[(startingIndex + i * k * sendcount + j) % num_vals] =
+            recvbuf[count++];
+      }
     }
-    free(sendBuffer);
+  }
+  startingIndex = (startingIndex - local_rank * sendcount) > 0
+                      ? (startingIndex - local_rank * sendcount)
+                      : (startingIndex - local_rank * sendcount) + num_vals;
+
+  // REVERSE AMONG GROUPS (NOT WITHIN)
+  for (int i = 0; i < local_num_procs / 2; i++) {
+    for (int j = 0; j < local_num_procs; j++) {
+      for (int k = 0; k < sendcount; k++) {
+        recvbuf[(i * local_num_procs + j) * sendcount + k] =
+            tempbuf[(((local_num_procs - 1 - i) * local_num_procs + j) *
+                         sendcount +
+                     k + startingIndex) %
+                    num_vals];
+        recvbuf[((local_num_procs - 1 - i) * local_num_procs + j) * sendcount +
+                k] = tempbuf[((i * local_num_procs + j) * sendcount + k +
+                              startingIndex) %
+                             num_vals];
+      }
+    }
+  }
+
+  // TRANSPOSE (ARRAY[I*PPN+J] = ARRAY[J*PPN+1])
+  for (int i = 0; i < local_num_procs; i++) {
+    for (int j = 0; j < local_num_procs; j++) {
+      for (int k = 0; k < sendcount; k++) {
+        tempbuf[(i * local_num_procs + j) * sendcount + k] =
+            recvbuf[(j * local_num_procs + i) * sendcount + k];
+        tempbuf[(j * local_num_procs + i) * sendcount + k] =
+            recvbuf[(i * local_num_procs + j) * sendcount + k];
+      }
+    }
+  }
+
+  // put final answer into recvbuf
+  memcpy(recvbuf, tempbuf, num_vals * sizeof(double));
+
+  delete[] sendBuffer;
+  delete[] tempbuf;
 }
 
 // main for testing and debugging
@@ -247,14 +267,14 @@ int main(int argc, char *argv[]) {
 
     // correctness check
     MPI_Alltoall(check_data_send, chunk_size, MPI_DOUBLE, check_data_recv,
-        chunk_size, MPI_DOUBLE, MPI_COMM_WORLD);
-    AlltoallNoShiftBuffered(data_send, 1, data_recv, num_doubles, chunk_size);
+                 chunk_size, MPI_DOUBLE, MPI_COMM_WORLD);
+    Alltoall_local_bruck(data_send, chunk_size, data_recv, MPI_COMM_WORLD);
 
     for (int i = 0; i < num_doubles; ++i)
-        assert_doubles_approx_equal(check_data_recv[i], data_send[i], 1e-5);
+      assert_doubles_approx_equal(check_data_recv[i], data_recv[i], 1e-5);
 
     // warmup and barrier before timing local version
-    AlltoallNoShiftBuffered(data_send, 1, data_recv, num_doubles, chunk_size);
+    Alltoall_local_bruck(data_send, chunk_size, data_recv, MPI_COMM_WORLD);
     MPI_Barrier(MPI_COMM_WORLD);
 
     // start timer
@@ -265,15 +285,15 @@ int main(int argc, char *argv[]) {
 
     // alltoall many times
     for (int i = 0; i < num_measurements; ++i) {
-        AlltoallNoShiftBuffered(data_send, 1, data_recv, num_doubles, chunk_size);
+      Alltoall_local_bruck(data_send, chunk_size, data_recv, MPI_COMM_WORLD);
     }
 
     // stop timer and print result
     if (rank == 0) {
       end = get_time();
       // append time
-      printf("%s,%d,%d,%g\n", "AlltoallNoShiftBuffered", num_procs, num_doubles,
-          (end - start) / num_measurements); // csv row
+      printf("%s,%d,%d,%g\n", "Alltoall_local_bruck", num_procs, num_doubles,
+             (end - start) / num_measurements); // csv row
     }
 
     // That's all folks!
