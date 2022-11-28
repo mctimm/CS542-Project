@@ -153,7 +153,7 @@ int alltoall_bruck(const void* sendbuf,
     int i_rev = total_count - 1;
     for (int i = 0; i < total_count; ++i)
     {
-        memcpy(recvbuf + recv_size*i, tmpbuf + recv_size*i_rev--, recv_size);
+        memcpy((char *)recvbuf + recv_size*i, tmpbuf + recv_size*i_rev--, recv_size);
     }
 
     return 0;
