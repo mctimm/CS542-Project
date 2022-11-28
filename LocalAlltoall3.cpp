@@ -133,7 +133,6 @@ void Alltoall_local_bruck(const double *sendbuf, int sendcount, double *recvbuf,
       local_num_procs * local_rank + node; // calculate who to send to.
   startingIndex = node * local_num_procs * sendcount % num_vals;
   MPI_Isend(tempbuf, num_vals, MPI_DOUBLE, nextsend, 1234, comm, &send_request);
-
   MPI_Irecv(recvbuf, num_vals, MPI_DOUBLE, nextsend, 1234, comm, &recv_request);
   MPI_Wait(&send_request, &status);
   MPI_Wait(&recv_request, &status);
@@ -143,7 +142,6 @@ void Alltoall_local_bruck(const double *sendbuf, int sendcount, double *recvbuf,
 
   // reverse and rotate data
   for (int i = 0; i < local_num_procs; i++) {
-
     int start = i * local_num_procs;
     int end = (1 + i) * local_num_procs - 1;
     while (start < end) {
@@ -157,10 +155,10 @@ void Alltoall_local_bruck(const double *sendbuf, int sendcount, double *recvbuf,
     }
   }
 
+  // adjusting the starting index
   startingIndex += (((node + 1) * local_num_procs * sendcount) +
                     ((local_num_procs - local_rank - 1) * sendcount)) %
                    num_vals;
-  // adjusting the starting index
 
   // second local sends
   for (int k = 1; k <= localsends; k *= 2) {
