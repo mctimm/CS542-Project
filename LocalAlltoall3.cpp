@@ -64,7 +64,7 @@ void debug_print_buffer(const double *buff, int size) {
   }
 }
 
-void Alltoall_local_bruck(const double *sendbuf, int sendcount, double *recvbuf,
+void alltoall_local_bruck(const double *sendbuf, int sendcount, double *recvbuf,
                           MPI_Comm comm) {
   int rank, num_procs;
   MPI_Comm_rank(comm, &rank);
@@ -266,13 +266,13 @@ int main(int argc, char *argv[]) {
     // correctness check
     MPI_Alltoall(check_data_send, chunk_size, MPI_DOUBLE, check_data_recv,
                  chunk_size, MPI_DOUBLE, MPI_COMM_WORLD);
-    Alltoall_local_bruck(data_send, chunk_size, data_recv, MPI_COMM_WORLD);
+    alltoall_local_bruck(data_send, chunk_size, data_recv, MPI_COMM_WORLD);
 
     for (int i = 0; i < num_doubles; ++i)
       assert_doubles_approx_equal(check_data_recv[i], data_recv[i], 1e-5);
 
     // warmup and barrier before timing local version
-    Alltoall_local_bruck(data_send, chunk_size, data_recv, MPI_COMM_WORLD);
+    alltoall_local_bruck(data_send, chunk_size, data_recv, MPI_COMM_WORLD);
     MPI_Barrier(MPI_COMM_WORLD);
 
     // start timer
@@ -283,14 +283,14 @@ int main(int argc, char *argv[]) {
 
     // alltoall many times
     for (int i = 0; i < num_measurements; ++i) {
-      Alltoall_local_bruck(data_send, chunk_size, data_recv, MPI_COMM_WORLD);
+      alltoall_local_bruck(data_send, chunk_size, data_recv, MPI_COMM_WORLD);
     }
 
     // stop timer and print result
     if (rank == 0) {
       end = get_time();
       // append time
-      printf("%s,%d,%d,%g\n", "Alltoall_local_bruck", num_procs, num_doubles,
+      printf("%s,%d,%d,%g\n", "alltoall_local_bruck", num_procs, num_doubles,
              (end - start) / num_measurements); // csv row
     }
 
