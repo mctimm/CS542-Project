@@ -225,6 +225,7 @@ void alltoall_local_bruck(const double *sendbuf, int sendcount, double *recvbuf,
   // put final answer into recvbuf
   memcpy(recvbuf, tempbuf, num_vals * sizeof(double));
 
+  MPI_Comm_free(&comm_local);
   delete[] sendBuffer;
   delete[] tempbuf;
 }
