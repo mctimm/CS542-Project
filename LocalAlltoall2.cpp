@@ -295,7 +295,7 @@ int main(int argc, char *argv[]) {
     if (num_doubles % num_procs != 0)
       continue;
 
-    if (/*DEBUG &&*/ rank == DEBUG_RANK) { // TODO fix
+    if (DEBUG && rank == DEBUG_RANK) {
       fprintf(stderr, "[DEBUG] num_doubles=%d\n", num_doubles);
       fprintf(stderr, "[DEBUG] chunk_size=%d\n", chunk_size);
       fprintf(stderr, "[DEBUG] num_procs=%d\n", num_procs);
@@ -312,8 +312,6 @@ int main(int argc, char *argv[]) {
     MPI_Alltoall(check_data_send, chunk_size, MPI_DOUBLE, check_data_recv,
                  chunk_size, MPI_DOUBLE, MPI_COMM_WORLD);
     RSM_Alltoall(data_send, chunk_size, data_recv, MPI_COMM_WORLD);
-
-    continue; // TODO remove
 
     for (int i = 0; i < num_doubles; ++i)
       assert_doubles_approx_equal(check_data_recv[i], data_recv[i], 1e-5);
