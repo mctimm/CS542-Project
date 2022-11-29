@@ -95,10 +95,6 @@ void RSM_Alltoall(const double *sendbuf, int sendcount, double *recvbuf,
 
   // some values used multiple times
   const int num_vals = num_ranks * sendcount;
-  const int right_neighbor_shared = (rank_shared + 1) % ppn;
-  const int left_neighbor_shared = (rank_shared - 1) < 0 ? ppn - 1 : rank_shared - 1;
-  const int right_two_shared = (rank_shared + 2) % ppn;
-  const int left_two_shared = (rank_shared + ppn - 2) % ppn; // left(x) === right(total-x)
   const int my_node = rank / ppn;
   double *tmpbuf = new double[num_vals];
   MPI_Request send_request;
@@ -122,30 +118,37 @@ void RSM_Alltoall(const double *sendbuf, int sendcount, double *recvbuf,
   // initialize recv buff
   memcpy(recvbuf, tmpbuf, num_vals * sizeof(double));
 
-  // send every 1*ppn rows 1 process away, locally
-   for (int i = ppn; i < num_ranks; i += 2*ppn) {
-     MPI_Irecv(recvbuf + i*sendcount, ppn*sendcount, MPI_DOUBLE, left_neighbor_shared, 0, comm_shared, &recv_request);
-     MPI_Isend(tmpbuf + i*sendcount , ppn*sendcount, MPI_DOUBLE, right_neighbor_shared, 0, comm_shared, &send_request);
-     MPI_Wait(&send_request, MPI_STATUS_IGNORE);
-     MPI_Wait(&recv_request, MPI_STATUS_IGNORE);
-   }
-   memcpy(tmpbuf, recvbuf, num_vals * sizeof(double));
-   if (DEBUG && rank == DEBUG_RANK) {
-     debug_print_buffer(tmpbuf, num_vals);
-     fprintf(stderr, "-----------------------\n");
-   }
+  // send every j*ppn rows j process away, locally
+  for (int j = 1; j <= log2(num_ranks); ++j) {
+    int right_j_shared = (rank_shared + j) % ppn;
+    int left_j_shared =
+        (rank_shared + ppn - j) % ppn; // left(x) === right(total-x)
+    for (int i = ppn; i < num_ranks; i += 2 * j * ppn) {
+      MPI_Irecv(recvbuf + i * sendcount, j * ppn * sendcount, MPI_DOUBLE,
+                left_j_shared, 0, comm_shared, &recv_request);
+      MPI_Isend(tmpbuf + i * sendcount, j * ppn * sendcount, MPI_DOUBLE,
+                right_j_shared, 0, comm_shared, &send_request);
+      MPI_Wait(&send_request, MPI_STATUS_IGNORE);
+      MPI_Wait(&recv_request, MPI_STATUS_IGNORE);
+    }
+    memcpy(tmpbuf, recvbuf, num_vals * sizeof(double));
+    if (DEBUG && rank == DEBUG_RANK) {
+      debug_print_buffer(tmpbuf, num_vals);
+      fprintf(stderr, "-----------------------\n");
+    }
+  }
 
-  // send every 2*ppn rows 2 processes away
-  for (int i = 2*ppn; i < num_ranks; i += 2*2*ppn) {
-    MPI_Irecv(recvbuf + i*sendcount, 2*ppn*sendcount, MPI_DOUBLE, left_two_shared, 1, comm_shared, &recv_request);
-    MPI_Isend(tmpbuf + i*sendcount , 2*ppn*sendcount, MPI_DOUBLE, right_two_shared, 1, comm_shared, &send_request);
-    MPI_Wait(&send_request, MPI_STATUS_IGNORE);
-    MPI_Wait(&recv_request, MPI_STATUS_IGNORE);
-  }
-  if (DEBUG && rank == DEBUG_RANK) {
-    debug_print_buffer(recvbuf, num_vals);
-    fprintf(stderr, "-----------------------\n");
-  }
+  // // send every 2*ppn rows 2 processes away
+  // for (int i = 2*ppn; i < num_ranks; i += 2*2*ppn) {
+  //   MPI_Irecv(recvbuf + i*sendcount, 2*ppn*sendcount, MPI_DOUBLE, left_two_shared, 1, comm_shared, &recv_request);
+  //   MPI_Isend(tmpbuf + i*sendcount , 2*ppn*sendcount, MPI_DOUBLE, right_two_shared, 1, comm_shared, &send_request);
+  //   MPI_Wait(&send_request, MPI_STATUS_IGNORE);
+  //   MPI_Wait(&recv_request, MPI_STATUS_IGNORE);
+  // }
+  // if (DEBUG && rank == DEBUG_RANK) {
+  //   debug_print_buffer(recvbuf, num_vals);
+  //   fprintf(stderr, "-----------------------\n");
+  // }
 
   // create a lookup table for rank (col) on node (row)
   // rank r on node n will be node_rank_table[n*ppn + r]
@@ -207,30 +210,37 @@ void RSM_Alltoall(const double *sendbuf, int sendcount, double *recvbuf,
   // prep buff since new data
   memcpy(tmpbuf, recvbuf, num_vals * sizeof(double));
 
-  // send groups of 1 row left 1 proc, locally
-  for (int i = 1; i < num_ranks; i += 2) {
-    MPI_Irecv(recvbuf + i*sendcount, sendcount, MPI_DOUBLE, right_neighbor_shared, 3, comm_shared, &recv_request);
-    MPI_Isend(tmpbuf + i*sendcount , sendcount, MPI_DOUBLE, left_neighbor_shared, 3, comm_shared, &send_request);
-    MPI_Wait(&send_request, MPI_STATUS_IGNORE);
-    MPI_Wait(&recv_request, MPI_STATUS_IGNORE);
-  }
-  memcpy(tmpbuf, recvbuf, num_vals * sizeof(double));
-  if (DEBUG && rank == DEBUG_RANK) {
-    debug_print_buffer(tmpbuf, num_vals);
-    fprintf(stderr, "-----------------------\n");
+  // send every j*ppn rows j process away, locally
+  for (int j = 1; j <= log2(num_ranks); ++j) {
+    int right_j_shared = (rank_shared + j) % ppn;
+    int left_j_shared =
+        (rank_shared + ppn - j) % ppn; // left(x) === right(total-x)
+    for (int i = 1; i < num_ranks; i += 2 * j) {
+      MPI_Irecv(recvbuf + i * sendcount, j * sendcount, MPI_DOUBLE,
+                right_j_shared, 3, comm_shared, &recv_request);
+      MPI_Isend(tmpbuf + i * sendcount, j * sendcount, MPI_DOUBLE,
+                left_j_shared, 3, comm_shared, &send_request);
+      MPI_Wait(&send_request, MPI_STATUS_IGNORE);
+      MPI_Wait(&recv_request, MPI_STATUS_IGNORE);
+    }
+    memcpy(tmpbuf, recvbuf, num_vals * sizeof(double));
+    if (DEBUG && rank == DEBUG_RANK) {
+      debug_print_buffer(tmpbuf, num_vals);
+      fprintf(stderr, "-----------------------\n");
+    }
   }
 
-  // send groups of 2 rows left 2 proc, locally
-  for (int i = 2; i < num_ranks; i += 4) {
-    MPI_Irecv(tmpbuf + i*sendcount, 2*sendcount, MPI_DOUBLE, right_two_shared, 4, comm_shared, &recv_request);
-    MPI_Isend(recvbuf + i*sendcount , 2*sendcount, MPI_DOUBLE, left_two_shared, 4, comm_shared, &send_request);
-    MPI_Wait(&send_request, MPI_STATUS_IGNORE);
-    MPI_Wait(&recv_request, MPI_STATUS_IGNORE);
-  }
-  if (DEBUG && rank == DEBUG_RANK) {
-    debug_print_buffer(tmpbuf, num_vals);
-    fprintf(stderr, "-----------------------\n");
-  }
+  // // send groups of 2 rows left 2 proc, locally
+  // for (int i = 2; i < num_ranks; i += 4) {
+  //   MPI_Irecv(tmpbuf + i*sendcount, 2*sendcount, MPI_DOUBLE, right_two_shared, 4, comm_shared, &recv_request);
+  //   MPI_Isend(recvbuf + i*sendcount , 2*sendcount, MPI_DOUBLE, left_two_shared, 4, comm_shared, &send_request);
+  //   MPI_Wait(&send_request, MPI_STATUS_IGNORE);
+  //   MPI_Wait(&recv_request, MPI_STATUS_IGNORE);
+  // }
+  // if (DEBUG && rank == DEBUG_RANK) {
+  //   debug_print_buffer(tmpbuf, num_vals);
+  //   fprintf(stderr, "-----------------------\n");
+  // }
 
   // rotate down (left) by local rank
   // = 0 - rank_shared (w/ wrap around)
