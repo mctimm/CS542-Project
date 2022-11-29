@@ -227,7 +227,7 @@ void alltoall_local_bruck(const double *sendbuf, int sendcount, double *recvbuf,
 
   MPI_Comm_free(&comm_local);
   delete[] sendBuffer;
-  delete[] recvbuf;
+  delete[] tmpbuf;
 }
 
 // main for testing and debugging
