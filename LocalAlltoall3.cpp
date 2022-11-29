@@ -64,7 +64,7 @@ void debug_print_buffer(const double *buff, int size) {
   }
 }
 
-void alltoall_local_bruck(const double *sendbuf, int sendcount, double *tempbuf,
+void alltoall_local_bruck(const double *sendbuf, int sendcount, double *recvbuf,
                           MPI_Comm comm) {
   int rank, num_procs;
   MPI_Comm_rank(comm, &rank);
@@ -84,8 +84,8 @@ void alltoall_local_bruck(const double *sendbuf, int sendcount, double *tempbuf,
   int num_vals = sendcount * num_procs;
 
   // temporary buffer so we dont mutate sendbuf
-  double *recvbuf = new double[num_vals];
-  memcpy(tempbuf, sendbuf, num_vals * sizeof(double));
+  double *tmpbuf = new double[num_vals];
+  memcpy(recvbuf, sendbuf, num_vals * sizeof(double));
 
   // calculate number
   int localsends = local_num_procs / 2;
@@ -103,7 +103,7 @@ void alltoall_local_bruck(const double *sendbuf, int sendcount, double *tempbuf,
         continue;
       for (int j = 0; j < local_num_procs * k * sendcount; j++) {
         sendBuffer[count++] =
-            (tempbuf[(startingIndex + i * local_num_procs * k * sendcount + j) %
+            (recvbuf[(startingIndex + i * local_num_procs * k * sendcount + j) %
                      num_vals]);
       }
     }
@@ -111,7 +111,7 @@ void alltoall_local_bruck(const double *sendbuf, int sendcount, double *tempbuf,
               (k + local_rank) % local_num_procs, 1234, comm_local,
               &send_request);
 
-    MPI_Irecv(recvbuf, sendsize, MPI_DOUBLE,
+    MPI_Irecv(tmpbuf, sendsize, MPI_DOUBLE,
               (local_rank - k) >= 0 ? local_rank - k
                                     : local_rank - k + local_num_procs,
               1234, comm_local, &recv_request);
@@ -122,8 +122,8 @@ void alltoall_local_bruck(const double *sendbuf, int sendcount, double *tempbuf,
       if (i % 2 == 0)
         continue;
       for (int j = 0; j < local_num_procs * k * sendcount; j++) {
-        tempbuf[(startingIndex + i * local_num_procs * k * sendcount + j) %
-                num_vals] = recvbuf[count++];
+        recvbuf[(startingIndex + i * local_num_procs * k * sendcount + j) %
+                num_vals] = tmpbuf[count++];
       }
     }
   }
@@ -132,12 +132,12 @@ void alltoall_local_bruck(const double *sendbuf, int sendcount, double *tempbuf,
   int nextsend =
       local_num_procs * local_rank + node; // calculate who to send to.
   startingIndex = node * local_num_procs * sendcount % num_vals;
-  MPI_Isend(tempbuf, num_vals, MPI_DOUBLE, nextsend, 1234, comm, &send_request);
-  MPI_Irecv(recvbuf, num_vals, MPI_DOUBLE, nextsend, 1234, comm, &recv_request);
+  MPI_Isend(recvbuf, num_vals, MPI_DOUBLE, nextsend, 1234, comm, &send_request);
+  MPI_Irecv(tmpbuf, num_vals, MPI_DOUBLE, nextsend, 1234, comm, &recv_request);
   MPI_Wait(&send_request, &status);
   MPI_Wait(&recv_request, &status);
   for (int j = 0; j < num_vals; j++) {
-    tempbuf[j] = (recvbuf[j]);
+    recvbuf[j] = (tmpbuf[j]);
   }
 
   // reverse and rotate data
@@ -146,9 +146,9 @@ void alltoall_local_bruck(const double *sendbuf, int sendcount, double *tempbuf,
     int end = (1 + i) * local_num_procs - 1;
     while (start < end) {
       for (int j = 0; j < sendcount; j++) {
-        double tmp = tempbuf[start * sendcount + j];
-        tempbuf[start * sendcount + j] = tempbuf[end * sendcount + j];
-        tempbuf[end * sendcount + j] = tmp;
+        double tmp = recvbuf[start * sendcount + j];
+        recvbuf[start * sendcount + j] = recvbuf[end * sendcount + j];
+        recvbuf[end * sendcount + j] = tmp;
       }
       start++;
       end--;
@@ -168,14 +168,14 @@ void alltoall_local_bruck(const double *sendbuf, int sendcount, double *tempbuf,
         continue;
       for (int j = 0; j < k * sendcount; j++) {
         sendBuffer[count++] =
-            tempbuf[(startingIndex + i * k * sendcount + j) % num_vals];
+            recvbuf[(startingIndex + i * k * sendcount + j) % num_vals];
       }
     }
     MPI_Isend(sendBuffer, sendsize, MPI_DOUBLE,
               (local_rank - k) >= 0 ? local_rank - k
                                     : local_rank - k + local_num_procs,
               1234, comm_local, &send_request);
-    MPI_Irecv(recvbuf, sendsize, MPI_DOUBLE, (local_rank + k) % local_num_procs,
+    MPI_Irecv(tmpbuf, sendsize, MPI_DOUBLE, (local_rank + k) % local_num_procs,
               1234, comm_local, &recv_request);
     MPI_Wait(&send_request, &status);
     MPI_Wait(&recv_request, &status);
@@ -184,8 +184,8 @@ void alltoall_local_bruck(const double *sendbuf, int sendcount, double *tempbuf,
       if (i % 2 == 0)
         continue;
       for (int j = 0; j < k * sendcount; j++) {
-        tempbuf[(startingIndex + i * k * sendcount + j) % num_vals] =
-            recvbuf[count++];
+        recvbuf[(startingIndex + i * k * sendcount + j) % num_vals] =
+            tmpbuf[count++];
       }
     }
   }
@@ -197,13 +197,13 @@ void alltoall_local_bruck(const double *sendbuf, int sendcount, double *tempbuf,
   for (int i = 0; i < local_num_procs / 2; i++) {
     for (int j = 0; j < local_num_procs; j++) {
       for (int k = 0; k < sendcount; k++) {
-        recvbuf[(i * local_num_procs + j) * sendcount + k] =
-            tempbuf[(((local_num_procs - 1 - i) * local_num_procs + j) *
+        tmpbuf[(i * local_num_procs + j) * sendcount + k] =
+            recvbuf[(((local_num_procs - 1 - i) * local_num_procs + j) *
                          sendcount +
                      k + startingIndex) %
                     num_vals];
-        recvbuf[((local_num_procs - 1 - i) * local_num_procs + j) * sendcount +
-                k] = tempbuf[((i * local_num_procs + j) * sendcount + k +
+        tmpbuf[((local_num_procs - 1 - i) * local_num_procs + j) * sendcount +
+                k] = recvbuf[((i * local_num_procs + j) * sendcount + k +
                               startingIndex) %
                              num_vals];
       }
@@ -214,10 +214,10 @@ void alltoall_local_bruck(const double *sendbuf, int sendcount, double *tempbuf,
   for (int i = 0; i < local_num_procs; i++) {
     for (int j = 0; j < local_num_procs; j++) {
       for (int k = 0; k < sendcount; k++) {
-        tempbuf[(i * local_num_procs + j) * sendcount + k] =
-            recvbuf[(j * local_num_procs + i) * sendcount + k];
-        tempbuf[(j * local_num_procs + i) * sendcount + k] =
-            recvbuf[(i * local_num_procs + j) * sendcount + k];
+        recvbuf[(i * local_num_procs + j) * sendcount + k] =
+            tmpbuf[(j * local_num_procs + i) * sendcount + k];
+        recvbuf[(j * local_num_procs + i) * sendcount + k] =
+            tmpbuf[(i * local_num_procs + j) * sendcount + k];
       }
     }
   }
