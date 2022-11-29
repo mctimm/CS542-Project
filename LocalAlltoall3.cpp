@@ -64,7 +64,7 @@ void debug_print_buffer(const double *buff, int size) {
   }
 }
 
-void alltoall_local_bruck(const double *sendbuf, int sendcount, double *recvbuf,
+void alltoall_local_bruck(const double *sendbuf, int sendcount, double *tempbuf,
                           MPI_Comm comm) {
   int rank, num_procs;
   MPI_Comm_rank(comm, &rank);
@@ -84,7 +84,7 @@ void alltoall_local_bruck(const double *sendbuf, int sendcount, double *recvbuf,
   int num_vals = sendcount * num_procs;
 
   // temporary buffer so we dont mutate sendbuf
-  double *tempbuf = new double[num_vals];
+  double *recvbuf = new double[num_vals];
   memcpy(tempbuf, sendbuf, num_vals * sizeof(double));
 
   // calculate number
@@ -223,7 +223,7 @@ void alltoall_local_bruck(const double *sendbuf, int sendcount, double *recvbuf,
   }
 
   // put final answer into recvbuf
-  memcpy(recvbuf, tempbuf, num_vals * sizeof(double));
+  //memcpy(recvbuf, tempbuf, num_vals * sizeof(double));
 
   MPI_Comm_free(&comm_local);
   delete[] sendBuffer;
