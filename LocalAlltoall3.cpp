@@ -236,14 +236,14 @@ int main(int argc, char *argv[]) {
   int rank, num_procs;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
-  static const int num_measurements = 1000;
+  static const int num_measurements = 10;
 
   // print csv header
   // if (rank == 0)
   //    printf("algorithm,num_procs,num_doubles_per_proc,seconds\n");
 
   // outer loop to test many message sizes
-  for (int i = log2(num_procs); i < 20; ++i) {
+  for (int i = log2(num_procs); i < 27; ++i) {
     int num_doubles = pow(2, i);
     int chunk_size = num_doubles / num_procs;
 
