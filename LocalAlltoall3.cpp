@@ -203,9 +203,9 @@ void alltoall_local_bruck(const double *sendbuf, int sendcount, double *recvbuf,
                      k + startingIndex) %
                     num_vals];
         tmpbuf[((local_num_procs - 1 - i) * local_num_procs + j) * sendcount +
-                k] = recvbuf[((i * local_num_procs + j) * sendcount + k +
-                              startingIndex) %
-                             num_vals];
+               k] = recvbuf[((i * local_num_procs + j) * sendcount + k +
+                             startingIndex) %
+                            num_vals];
       }
     }
   }
@@ -223,7 +223,7 @@ void alltoall_local_bruck(const double *sendbuf, int sendcount, double *recvbuf,
   }
 
   // put final answer into recvbuf
-  //memcpy(recvbuf, tempbuf, num_vals * sizeof(double));
+  // memcpy(recvbuf, tempbuf, num_vals * sizeof(double));
 
   MPI_Comm_free(&comm_local);
   delete[] sendBuffer;
