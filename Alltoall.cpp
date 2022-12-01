@@ -1,12 +1,12 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <mpi.h>
-#include <time.h>
-#include <sys/time.h>
+#include <algorithm>
 #include <cassert>
 #include <cmath>
 #include <cstring>
-#include <algorithm>
+#include <mpi.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/time.h>
+#include <time.h>
 
 #define DEBUG 1
 #define DEBUG_RANK 1
@@ -26,20 +26,20 @@ void initialize_data(double *data, int size, int rank) {
 // }
 
 //// this one is only for 4x4 w/ 32 vals to match spreadsheet!
-//void initialize_data(double *data, int size, int rank) {
-//  int j = 0;
-//  for(int i = 0; i < 32; i += 2){
-//    data[i] = 16*(rank) + j;
-//    data[i+1] = 16*(rank) + j;
-//    ++j;
-//  }
-//}
+// void initialize_data(double *data, int size, int rank) {
+//   int j = 0;
+//   for(int i = 0; i < 32; i += 2){
+//     data[i] = 16*(rank) + j;
+//     data[i+1] = 16*(rank) + j;
+//     ++j;
+//   }
+// }
 
 // get_time gets the wall-clock time in seconds
 double get_time(void) {
-    struct timeval time;
-    gettimeofday(&time, NULL);
-    return time.tv_sec + time.tv_usec / 1000000.0;
+  struct timeval time;
+  gettimeofday(&time, NULL);
+  return time.tv_sec + time.tv_usec / 1000000.0;
 }
 
 void assert_doubles_approx_equal(double want, double got, double tolerance) {
@@ -54,126 +54,115 @@ void assert_doubles_approx_equal(double want, double got, double tolerance) {
   assert(abs(want - got) <= tolerance);
 }
 
-
-void rotate(void* recvbuf,
-        int new_first_byte,
-        int last_byte)
-{
-    char* recv_buffer = (char*)(recvbuf);
-    std::rotate(recv_buffer, &(recv_buffer[new_first_byte]), &(recv_buffer[last_byte]));
+void rotate(void *recvbuf, int new_first_byte, int last_byte) {
+  char *recv_buffer = (char *)(recvbuf);
+  std::rotate(recv_buffer, &(recv_buffer[new_first_byte]),
+              &(recv_buffer[last_byte]));
 }
 
-int alltoall_bruck(const void* sendbuf,
-        const int sendcount,
-        MPI_Datatype sendtype,
-        void* recvbuf,
-        const int recvcount,
-        MPI_Datatype recvtype,
-        MPI_Comm comm)
-{
-    int rank, num_procs;
-    MPI_Comm_rank(comm, &rank);
-    MPI_Comm_size(comm, &num_procs);
+int alltoall_bruck(const void *sendbuf, const int sendcount,
+                   MPI_Datatype sendtype, void *recvbuf, const int recvcount,
+                   MPI_Datatype recvtype, MPI_Comm comm) {
+  int rank, num_procs;
+  MPI_Comm_rank(comm, &rank);
+  MPI_Comm_size(comm, &num_procs);
 
-    int tag = 102944;
-    MPI_Request requests[2];
+  int tag = 102944;
+  MPI_Request requests[2];
 
-    char* recv_buffer = (char*)recvbuf;
+  char *recv_buffer = (char *)recvbuf;
 
-    int recv_size;
-    MPI_Type_size(recvtype, &recv_size);
+  int recv_size;
+  MPI_Type_size(recvtype, &recv_size);
 
-    if (sendbuf != recvbuf)
-        memcpy(recvbuf, sendbuf, recvcount*recv_size*num_procs);
+  if (sendbuf != recvbuf)
+    memcpy(recvbuf, sendbuf, recvcount * recv_size * num_procs);
 
-    // Perform all-to-all
-    int stride, ctr, group_size;
-    int send_proc, recv_proc, size;
-    int num_steps = log2(num_procs);
-    int msg_size = recvcount*recv_size;
-    int total_count = recvcount*num_procs;
+  // Perform all-to-all
+  int stride, ctr, group_size;
+  int send_proc, recv_proc, size;
+  int num_steps = log2(num_procs);
+  int msg_size = recvcount * recv_size;
+  int total_count = recvcount * num_procs;
 
-    // TODO : could have only half this size
-    char* contig_buf = new char[total_count*recv_size];
-    char* tmpbuf = new char[total_count*recv_size];
+  // TODO : could have only half this size
+  char *contig_buf = new char[total_count * recv_size];
+  char *tmpbuf = new char[total_count * recv_size];
 
-    // 1. rotate local data
-    if (rank)
-        rotate(recv_buffer, rank*msg_size, num_procs*msg_size);
+  // 1. rotate local data
+  if (rank)
+    rotate(recv_buffer, rank * msg_size, num_procs * msg_size);
 
-    //if (rank == 0) for (int i = 0; i < total_count; i++)
-    //    printf("%d\n", ((int*)(recvbuf))[i]);
+  // if (rank == 0) for (int i = 0; i < total_count; i++)
+  //     printf("%d\n", ((int*)(recvbuf))[i]);
 
-    // 2. send to left, recv from right
-    stride = 1;
-    for (int i = 0; i < num_steps; i++)
-    {
-        //if (rank == 0) printf("Step %d\n", i);
-        recv_proc = rank - stride;
-        if (recv_proc < 0) recv_proc += num_procs;
-        send_proc = rank + stride;
-        if (send_proc >= num_procs) send_proc -= num_procs;
+  // 2. send to left, recv from right
+  stride = 1;
+  for (int i = 0; i < num_steps; i++) {
+    // if (rank == 0) printf("Step %d\n", i);
+    recv_proc = rank - stride;
+    if (recv_proc < 0)
+      recv_proc += num_procs;
+    send_proc = rank + stride;
+    if (send_proc >= num_procs)
+      send_proc -= num_procs;
 
-        group_size = stride * recvcount;
-        
-        ctr = 0;
-        for (int i = group_size; i < total_count; i += (group_size*2))
-        {
-            for (int j = 0; j < group_size; j++)
-            {
-                for (int k = 0; k < recv_size; k++)
-                {
-                    //if (rank == 0) printf("i = %d, j = %d, k = %d\n", i, j, k);
-                    contig_buf[ctr*recv_size+k] = recv_buffer[(i+j)*recv_size+k];
-                }
-                //if (rank == 0) printf("Contigbuf[%d] = %d\n", ctr, ((int*)(contig_buf))[ctr]);
-                ctr++;
-            }
+    group_size = stride * recvcount;
+
+    ctr = 0;
+    for (int i = group_size; i < total_count; i += (group_size * 2)) {
+      for (int j = 0; j < group_size; j++) {
+        for (int k = 0; k < recv_size; k++) {
+          // if (rank == 0) printf("i = %d, j = %d, k = %d\n", i, j, k);
+          contig_buf[ctr * recv_size + k] =
+              recv_buffer[(i + j) * recv_size + k];
         }
-
-        size = ((int)(total_count / group_size) * group_size) / 2;
-
-        //if (rank == 0) printf("Rank %d sending %d vals (%d) to %d\n", rank, size, ((int*)(contig_buf))[0], send_proc);
-        MPI_Isend(contig_buf, size, recvtype, send_proc, tag, comm, &(requests[0]));
-        MPI_Irecv(tmpbuf, size, recvtype, recv_proc, tag, comm, &(requests[1]));
-        MPI_Waitall(2, requests, MPI_STATUSES_IGNORE);
-
-        ctr = 0;
-        for (int i = group_size; i < total_count; i += (group_size*2))
-        {
-            for (int j = 0; j < group_size; j++)
-            {
-                for (int k = 0; k < recv_size; k++)
-                {
-                    recv_buffer[(i+j)*recv_size+k] = tmpbuf[ctr*recv_size+k];
-                }
-                ctr++;
-            }
-        }
-
-        //if (rank == 0) for (int i = 0; i < total_count; i++)
-        //    printf("%d\n", ((int*)(recvbuf))[i]);
-
-        stride *= 2;
-
-    } 
-
-    // 3. rotate local data
-    if (rank < num_procs)
-        rotate(recv_buffer, (rank+1)*msg_size, num_procs*msg_size);
-
-    // 4. reverse local data
-    memcpy(tmpbuf, recv_buffer, total_count*recv_size);
-    int i_rev = num_procs - 1;
-    for (int i = 0; i < num_procs; ++i)
-    {
-        memcpy(((char*)recvbuf) + i*msg_size, ((char*)tmpbuf) + i_rev*msg_size, msg_size);
-        i_rev -= 1;
+        // if (rank == 0) printf("Contigbuf[%d] = %d\n", ctr,
+        // ((int*)(contig_buf))[ctr]);
+        ctr++;
+      }
     }
 
-    delete[] contig_buf;
-    delete[] tmpbuf;
-    return 0;
+    size = ((int)(total_count / group_size) * group_size) / 2;
+
+    // if (rank == 0) printf("Rank %d sending %d vals (%d) to %d\n", rank, size,
+    // ((int*)(contig_buf))[0], send_proc);
+    MPI_Isend(contig_buf, size, recvtype, send_proc, tag, comm, &(requests[0]));
+    MPI_Irecv(tmpbuf, size, recvtype, recv_proc, tag, comm, &(requests[1]));
+    MPI_Waitall(2, requests, MPI_STATUSES_IGNORE);
+
+    ctr = 0;
+    for (int i = group_size; i < total_count; i += (group_size * 2)) {
+      for (int j = 0; j < group_size; j++) {
+        for (int k = 0; k < recv_size; k++) {
+          recv_buffer[(i + j) * recv_size + k] = tmpbuf[ctr * recv_size + k];
+        }
+        ctr++;
+      }
+    }
+
+    // if (rank == 0) for (int i = 0; i < total_count; i++)
+    //     printf("%d\n", ((int*)(recvbuf))[i]);
+
+    stride *= 2;
+  }
+
+  // 3. rotate local data
+  if (rank < num_procs)
+    rotate(recv_buffer, (rank + 1) * msg_size, num_procs * msg_size);
+
+  // 4. reverse local data
+  memcpy(tmpbuf, recv_buffer, total_count * recv_size);
+  int i_rev = num_procs - 1;
+  for (int i = 0; i < num_procs; ++i) {
+    memcpy(((char *)recvbuf) + i * msg_size,
+           ((char *)tmpbuf) + i_rev * msg_size, msg_size);
+    i_rev -= 1;
+  }
+
+  delete[] contig_buf;
+  delete[] tmpbuf;
+  return 0;
 }
 
 // main for testing and debugging
@@ -218,7 +207,7 @@ int main(int argc, char *argv[]) {
 
     for (int i = 0; i < num_doubles; ++i)
       assert_doubles_approx_equal(check_data_recv[i], data_recv[i], 1e-5);
-    
+
     // warmup and barrier before timing local version
     alltoall_bruck(data_send, chunk_size, MPI_DOUBLE, data_recv, chunk_size,
                    MPI_DOUBLE, MPI_COMM_WORLD);
