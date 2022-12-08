@@ -1,5 +1,7 @@
 # CS543-Project
 
+Exploring the performance of a locality aware Bruck all to all.
+
 ## Compile on wheeler
 
 ```
