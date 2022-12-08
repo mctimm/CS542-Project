@@ -10,6 +10,6 @@
 ## Run on wheeler
 
 ```
-sbatch localAlltoall_4x4.sh
-sbatch localAlltoall_8x8.sh
+sbatch ./batch_scripts/localAlltoall_4x4.sh
+sbatch ./batch_scripts/localAlltoall_8x8.sh
 ```
