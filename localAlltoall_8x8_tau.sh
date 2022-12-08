@@ -10,5 +10,4 @@
 . env_tau.sh
 srun --mpi=pmi2 ls -l /etc/slurm/slurm.conf
 srun --mpi=pmi2 hostname
-srun tau_exec ./build/LocalAlltoall
-
+srun tau_exec ./build/alltoall_local_bruck

@@ -11,6 +11,5 @@
 . env.sh
 srun --mpi=pmi2 hostname
 echo 'algorithm,num_procs,num_doubles_per_proc,seconds' > results_8x8_big.csv
-srun --mpi=pmi2 -n 64 -N 8 ./build/LocalAlltoall3 >> results_8x8_big.csv
-srun --mpi=pmi2 -n 64 -N 8 ./build/Alltoall >> results_8x8_big.csv
-
+srun --mpi=pmi2 -n 64 -N 8 ./build/alltoall_bruck >> results_8x8_big.csv
+srun --mpi=pmi2 -n 64 -N 8 ./build/alltoall_local_bruck >> results_8x8_big.csv
