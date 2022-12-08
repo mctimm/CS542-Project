@@ -54,12 +54,15 @@ void assert_doubles_approx_equal(double want, double got, double tolerance) {
   assert(abs(want - got) <= tolerance);
 }
 
+// this code is from https://github.com/mpi-advance/locality_aware
 void rotate(void *recvbuf, int new_first_byte, int last_byte) {
   char *recv_buffer = (char *)(recvbuf);
   std::rotate(recv_buffer, &(recv_buffer[new_first_byte]),
               &(recv_buffer[last_byte]));
 }
 
+
+// this code is from https://github.com/mpi-advance/locality_aware
 int alltoall_bruck(const void *sendbuf, const int sendcount,
                    MPI_Datatype sendtype, void *recvbuf, const int recvcount,
                    MPI_Datatype recvtype, MPI_Comm comm) {
