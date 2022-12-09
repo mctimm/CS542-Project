@@ -1,4 +1,4 @@
-# CS543-Project
+# CS542-Project
 
 Exploring the performance of a locality aware Bruck all to all.
 
